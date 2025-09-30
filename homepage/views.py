@@ -57,8 +57,19 @@ def home(request):
 
 
 def temeperature_data(request):
-    fetch_new_data()
     """Get current temperature data for each location (most recent reading per location)"""
+    # Check if this is a manual refresh request
+    manual_refresh = request.GET.get('manual', '').lower() == 'true'
+
+    if manual_refresh:
+        # Manual refresh: fetch new data from SwitchBot devices first
+        try:
+            fetch_new_data()
+        except Exception as e:
+            print(f"Error fetching new data from devices: {e}")
+            # Continue with database data even if device fetch fails
+
+    # Always return the latest data from database
     locations = Temperature.objects.values_list('location', flat=True).distinct()
     current_data = []
 
