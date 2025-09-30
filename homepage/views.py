@@ -9,6 +9,8 @@ from homepage.models import Temperature
 from switchbot import SwitchBot, Device
 
 # Create your views here.
+
+
 def fetch_new_data():
     switchbot_token = os.getenv('SWITCHBOT_TOKEN', '')
     switchbot_secret = os.getenv('SWITCHBOT_SECRET', '')
@@ -52,8 +54,32 @@ def fetch_new_data():
         except Exception as e:
             print(f"Error fetching data from device {mac}: {e}")
 
+
 def home(request):
     return render(request, 'homepage/home.html', {})
+
+
+def basic(request):
+    living_temp = Temperature.objects.filter(
+        location='Living Room').order_by('-timestamp').first()
+    bedroom_temp = Temperature.objects.filter(
+        location='Bedroom').order_by('-timestamp').first()
+    office_temp = Temperature.objects.filter(
+        location='Office').order_by('-timestamp').first()
+    outdoor_temp = Temperature.objects.filter(
+        location='Outdoor').order_by('-timestamp').first()
+
+    temeperature_data = [
+        {'location': 'Living Room', 'temperature': living_temp.temperature if living_temp else None,
+            'timestamp': living_temp.timestamp if living_temp else None, "humidity": living_temp.humidity if living_temp else None},
+        {'location': 'Bedroom', 'temperature': bedroom_temp.temperature if bedroom_temp else None,
+            'timestamp': bedroom_temp.timestamp if bedroom_temp else None, "humidity": bedroom_temp.humidity if bedroom_temp else None},
+        {'location': 'Office', 'temperature': office_temp.temperature if office_temp else None,
+         'timestamp': office_temp.timestamp if office_temp else None, "humidity": office_temp.humidity if office_temp else None},
+        {'location': 'Outdoor', 'temperature': outdoor_temp.temperature if outdoor_temp else None,
+         'timestamp': outdoor_temp.timestamp if outdoor_temp else None, "humidity": outdoor_temp.humidity if outdoor_temp else None}
+    ]
+    return render(request, 'homepage/basic.html', {'temeperature_data': temeperature_data})
 
 
 def temeperature_data(request):
@@ -72,12 +98,14 @@ def temeperature_data(request):
     # Always return the latest data from database
     # Fix: Use a more robust approach to get distinct locations
     current_data = []
-    
+
     # Get unique locations first using a more reliable method
-    unique_locations = set(Temperature.objects.values_list('location', flat=True))
-    
+    unique_locations = set(
+        Temperature.objects.values_list('location', flat=True))
+
     for location in unique_locations:
-        latest = Temperature.objects.filter(location=location).order_by('-timestamp').first()
+        latest = Temperature.objects.filter(
+            location=location).order_by('-timestamp').first()
         if latest:
             current_data.append({
                 'pk': latest.pk,
