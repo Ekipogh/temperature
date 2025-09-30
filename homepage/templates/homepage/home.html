@@ -76,7 +76,12 @@
                         <p class="text-muted">Real-time monitoring of temperature and humidity</p>
                     </div>
                     <button v-on:click="refreshData" v-bind:disabled="loading" class="btn btn-primary refresh-btn">
-                        <i class="fas fa-sync-alt" v-bind:class="{'fa-spin': loading}"></i> Refresh ([[ formatCounter(reload_counter) ]])
+                        <i class="fas fa-sync-alt" v-bind:class="{'fa-spin': loading}"></i>
+                        <span v-if="loading">Refreshing...</span>
+                        <span v-else> Manual Refresh</span>
+                        <small class="d-block" style="font-size: 0.75em; opacity: 0.8;">
+                            Auto: [[ formatCounter(reload_counter) ]]
+                        </small>
                     </button>
                 </div>
             </div>
@@ -233,9 +238,10 @@
                     return date.toLocaleDateString();
                 };
 
-                const fetchCurrentData = async () => {
+                const fetchCurrentData = async (manual = false) => {
                     try {
-                        const response = await fetch('/api/temperature/');
+                        const url = manual ? '/api/temperature/?manual=true' : '/api/temperature/';
+                        const response = await fetch(url);
                         if (!response.ok) throw new Error('Failed to fetch current data');
                         const data = await response.json();
                         currentTemperatures.value = data;
@@ -438,7 +444,7 @@
 
                     try {
                         await Promise.all([
-                            fetchCurrentData(),
+                            fetchCurrentData(true), // Manual refresh - fetch from devices
                             fetchHistoricalData()
                         ]);
 
@@ -446,10 +452,33 @@
                         await new Promise(resolve => setTimeout(resolve, 200));
                         createTemperatureChart();
                         createHumidityChart();
+
+                        // Reset the auto-refresh counter
+                        reload_counter.value = reload_interval;
                     } catch (err) {
                         error.value = err.message || 'Failed to load data';
                     } finally {
                         loading.value = false;
+                    }
+                };
+
+                const autoRefreshData = async () => {
+                    // Auto-refresh only fetches from database (updated by daemon)
+                    // No loading spinner for this background refresh
+                    try {
+                        await Promise.all([
+                            fetchCurrentData(),
+                            fetchHistoricalData()
+                        ]);
+
+                        // Update charts without DOM delay (they already exist)
+                        createTemperatureChart();
+                        createHumidityChart();
+
+                        console.log('Auto-refresh completed at', new Date().toLocaleTimeString());
+                    } catch (err) {
+                        console.error('Auto-refresh failed:', err);
+                        // Don't show error to user for background refresh
                     }
                 };
 
@@ -462,8 +491,10 @@
 
                 const updateRefreshCounter = () => {
                     reload_counter.value -= 1000;
-                    if (reload_counter.value < 0) {
+                    if (reload_counter.value <= 0) {
                         reload_counter.value = reload_interval;
+                        // Trigger auto-refresh from database when counter reaches zero
+                        autoRefreshData();
                     }
                 };
 
@@ -475,8 +506,7 @@
 
                 onMounted(() => {
                     refreshData();
-                    // Auto-refresh every 5 minutes
-                    setInterval(refreshData, reload_interval);
+                    // Only run the counter timer - auto-refresh is handled by updateRefreshCounter
                     setInterval(updateRefreshCounter, 1000);
                 });
 
