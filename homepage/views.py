@@ -70,10 +70,13 @@ def temeperature_data(request):
             # Continue with database data even if device fetch fails
 
     # Always return the latest data from database
-    locations = Temperature.objects.values_list('location', flat=True).distinct()
+    # Fix: Use a more robust approach to get distinct locations
     current_data = []
-
-    for location in locations:
+    
+    # Get unique locations first using a more reliable method
+    unique_locations = set(Temperature.objects.values_list('location', flat=True))
+    
+    for location in unique_locations:
         latest = Temperature.objects.filter(location=location).order_by('-timestamp').first()
         if latest:
             current_data.append({

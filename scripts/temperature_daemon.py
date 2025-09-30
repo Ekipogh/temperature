@@ -156,10 +156,20 @@ class TemperatureDaemon:
             return None
 
     def store_temperature(self, device_name: str, temperature: float, humidity: float) -> bool:
-        """Store temperature reading in database with error handling."""
+        """Store temperature reading in database with error handling and validation."""
         try:
             # Import here to avoid circular import issues
             from homepage.models import Temperature
+            from django.db import transaction
+
+            # Validate inputs
+            if not isinstance(temperature, (int, float)):
+                logger.error(f"Invalid temperature type for {device_name}: {type(temperature)}")
+                return False
+            
+            if humidity is not None and not isinstance(humidity, (int, float)):
+                logger.error(f"Invalid humidity type for {device_name}: {type(humidity)}")
+                return False
 
             location_map = {
                 "living_room_thermometer": "Living Room",
@@ -169,13 +179,21 @@ class TemperatureDaemon:
             }
 
             location = location_map.get(device_name, "Unknown")
+            
+            if location == "Unknown":
+                logger.warning(f"Unknown device name: {device_name}")
 
-            temperature_record = Temperature(
-                location=location,
-                temperature=temperature,
-                timestamp=timezone.now()
-            )
-            temperature_record.save()
+            # Use atomic transaction for data integrity
+            with transaction.atomic():
+                temperature_record = Temperature(
+                    location=location,
+                    temperature=temperature,
+                    humidity=humidity,
+                    timestamp=timezone.now()
+                )
+                # Validate model before saving
+                temperature_record.full_clean()
+                temperature_record.save()
 
             logger.info(f"Stored temperature {temperature}°C for {location}, humidity {humidity}%")
             return True
