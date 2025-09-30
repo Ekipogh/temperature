@@ -1,0 +1,503 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temperature Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌡️</text></svg>" />
+    <style>
+        .temperature-card {
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s;
+        }
+        .temperature-card:hover {
+            transform: translateY(-2px);
+        }
+        .temperature-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+        }
+        .humidity-value {
+            font-size: 1.5rem;
+            color: #6c757d;
+        }
+        .location-name {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #495057;
+        }
+        .last-updated {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+        .chart-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-top: 30px;
+        }
+        .chart-canvas {
+            height: 400px !important;
+        }
+        .stats-row {
+            margin-bottom: 30px;
+        }
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 200px;
+        }
+        .error-message {
+            text-align: center;
+            padding: 20px;
+            color: #dc3545;
+        }
+        .refresh-btn {
+            border-radius: 50px;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container-fluid py-4" id="app">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h1 class="mb-0"><i class="fas fa-thermometer-half me-2"></i>Temperature Dashboard</h1>
+                        <p class="text-muted">Real-time monitoring of temperature and humidity</p>
+                    </div>
+                    <button v-on:click="refreshData" v-bind:disabled="loading" class="btn btn-primary refresh-btn">
+                        <i class="fas fa-sync-alt" v-bind:class="{'fa-spin': loading}"></i> Refresh ([[ formatCounter(reload_counter) ]])
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Temperature Cards -->
+        <div class="row stats-row" v-if="!loading && !error">
+            <div class="col-lg-3 col-md-6 mb-4" v-for="location in currentTemperatures" :key="location.pk">
+                <div class="card temperature-card h-100" :class="getCardClass(location.location)">
+                    <div class="card-body text-center">
+                        <div class="location-name mb-2">
+                            <i :class="getLocationIcon(location.location)" class="me-2"></i>
+                            [[ location.location ]]
+                        </div>
+                        <div class="temperature-value mb-2" :class="getTemperatureColor(location.temperature)">
+                            [[ location.temperature ]]°C
+                        </div>
+                        <div class="humidity-value mb-2" v-if="location.humidity">
+                            <i class="fas fa-tint me-1"></i>[[ location.humidity ]]%
+                        </div>
+                        <div class="last-updated">
+                            <i class="fas fa-clock me-1"></i>[[ formatTimestamp(location.timestamp) ]]
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div v-if="loading" class="loading">
+            <div class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Loading temperature data...</p>
+            </div>
+        </div>
+
+        <!-- Error State -->
+        <div v-if="error" class="error-message">
+            <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+            <p>[[ error ]]</p>
+            <button @click="refreshData" class="btn btn-outline-primary">Try Again</button>
+        </div>
+
+        <!-- Historical Charts -->
+        <div class="row">
+            <div class="col-12">
+                <div class="chart-container" v-show="!loading && !error">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h3><i class="fas fa-chart-line me-2"></i>Temperature History</h3>
+                        <div class="btn-group" role="group">
+                            <button
+                                type="button"
+                                class="btn btn-outline-primary btn-sm"
+                                :class="{'active': selectedTimeRange === 6}"
+                                @click="changeTimeRange(6)">
+                                6H
+                            </button>
+                            <button
+                                type="button"
+                                class="btn btn-outline-primary btn-sm"
+                                :class="{'active': selectedTimeRange === 24}"
+                                @click="changeTimeRange(24)">
+                                24H
+                            </button>
+                            <button
+                                type="button"
+                                class="btn btn-outline-primary btn-sm"
+                                :class="{'active': selectedTimeRange === 168}"
+                                @click="changeTimeRange(168)">
+                                7D
+                            </button>
+                        </div>
+                    </div>
+                    <canvas id="temperatureChart" class="chart-canvas"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Humidity Chart -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="chart-container" v-show="!loading && !error && hasHumidityData">
+                    <h3><i class="fas fa-tint me-2"></i>Humidity History</h3>
+                    <canvas id="humidityChart" class="chart-canvas"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vue.js App -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script>
+        const { createApp, ref, onMounted, computed } = Vue;
+
+        createApp({
+            delimiters: ['[[', ']]'],
+            setup() {
+                const currentTemperatures = ref([]);
+                const historicalData = ref({});
+                const loading = ref(false);
+                const error = ref(null);
+                const selectedTimeRange = ref(24);
+                let temperatureChart = null;
+                let humidityChart = null;
+                const reload_interval = 5 * 60 * 1000; // 5 minutes
+                const reload_counter = ref(reload_interval);
+
+                const hasHumidityData = computed(() => {
+                    const result = Object.values(historicalData.value).some(locationData =>
+                        locationData.some(entry => entry.humidity !== null && entry.humidity !== undefined)
+                    );
+                    console.log('hasHumidityData computed:', result, 'historicalData:', historicalData.value);
+                    return result;
+                });
+
+                const getLocationIcon = (location) => {
+                    const icons = {
+                        'Living Room': 'fas fa-couch',
+                        'Bedroom': 'fas fa-bed',
+                        'Office': 'fas fa-briefcase',
+                        'Outdoor': 'fas fa-tree'
+                    };
+                    return icons[location] || 'fas fa-map-marker-alt';
+                };
+
+                const getCardClass = (location) => {
+                    const classes = {
+                        'Living Room': 'border-primary',
+                        'Bedroom': 'border-success',
+                        'Office': 'border-warning',
+                        'Outdoor': 'border-info'
+                    };
+                    return classes[location] || 'border-secondary';
+                };
+
+                const getTemperatureColor = (temp) => {
+                    if (temp < 15) return 'text-primary';
+                    if (temp < 20) return 'text-info';
+                    if (temp < 25) return 'text-success';
+                    if (temp < 30) return 'text-warning';
+                    return 'text-danger';
+                };
+
+                const formatTimestamp = (timestamp) => {
+                    const date = new Date(timestamp);
+                    const now = new Date();
+                    const diffMinutes = Math.floor((now - date) / (1000 * 60));
+
+                    if (diffMinutes < 1) return 'Just now';
+                    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+                    if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)}h ago`;
+                    return date.toLocaleDateString();
+                };
+
+                const fetchCurrentData = async () => {
+                    try {
+                        const response = await fetch('/api/temperature/');
+                        if (!response.ok) throw new Error('Failed to fetch current data');
+                        const data = await response.json();
+                        currentTemperatures.value = data;
+                    } catch (err) {
+                        console.error('Error fetching current data:', err);
+                        throw err;
+                    }
+                };
+
+                const fetchHistoricalData = async () => {
+                    try {
+                        const response = await fetch(`/api/historical/?hours=${selectedTimeRange.value}`);
+                        if (!response.ok) throw new Error('Failed to fetch historical data');
+                        const data = await response.json();
+                        historicalData.value = data;
+                    } catch (err) {
+                        console.error('Error fetching historical data:', err);
+                        throw err;
+                    }
+                };
+
+                const createTemperatureChart = () => {
+                    console.log('createTemperatureChart called, historicalData:', historicalData.value);
+
+                    // Wait for DOM to be updated if needed
+                    setTimeout(() => {
+                        const ctx = document.getElementById('temperatureChart');
+                        console.log('Creating temperature chart, ctx:', ctx);
+
+                        if (!ctx) {
+                            console.error('Temperature chart canvas element not found in DOM');
+                            console.log('Available canvas elements:', document.querySelectorAll('canvas'));
+                            return;
+                        }
+
+                        const datasets = Object.entries(historicalData.value).map(([location, data], index) => {
+                            const colors = ['#ff6384', '#36a2eb', '#ffce56', '#4bc0c0', '#9966ff'];
+                            return {
+                                label: location,
+                                data: data.map(entry => ({
+                                    x: new Date(entry.timestamp),
+                                    y: entry.temperature
+                                })),
+                                borderColor: colors[index % colors.length],
+                                backgroundColor: colors[index % colors.length] + '20',
+                                tension: 0.1,
+                                fill: false
+                            };
+                        });
+
+                        const config = {
+                            type: 'line',
+                            data: { datasets },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                interaction: {
+                                    mode: 'index',
+                                    intersect: false,
+                                },
+                                scales: {
+                                    x: {
+                                        type: 'time',
+                                        time: {
+                                            displayFormats: {
+                                                hour: 'HH:mm',
+                                                day: 'MMM DD'
+                                            }
+                                        },
+                                        title: {
+                                            display: true,
+                                            text: 'Time'
+                                        }
+                                    },
+                                    y: {
+                                        title: {
+                                            display: true,
+                                            text: 'Temperature (°C)'
+                                        }
+                                    }
+                                },
+                                plugins: {
+                                    legend: {
+                                        position: 'top',
+                                    },
+                                    tooltip: {
+                                        mode: 'index',
+                                        intersect: false,
+                                    }
+                                }
+                            }
+                        };
+
+                        if (temperatureChart) {
+                            console.log('Destroying existing temperature chart');
+                            temperatureChart.destroy();
+                        }
+
+                        console.log('Creating temperature chart with config:', config);
+                        temperatureChart = new Chart(ctx, config);
+                        console.log('Temperature chart created successfully');
+                    }, 50); // Small delay to ensure DOM is ready
+                };
+
+                const createHumidityChart = () => {
+                    console.log('createHumidityChart called, hasHumidityData:', hasHumidityData.value);
+
+                    if (!hasHumidityData.value) {
+                        console.log('No humidity data available, skipping chart creation');
+                        return;
+                    }
+
+                    // Wait for DOM to be updated if the humidity section was just shown
+                    setTimeout(() => {
+                        const ctx = document.getElementById('humidityChart');
+                        console.log('Creating humidity chart, ctx:', ctx);
+
+                        if (!ctx) {
+                            console.error('Humidity chart canvas element not found in DOM');
+                            console.log('Available canvas elements:', document.querySelectorAll('canvas'));
+                            return;
+                        }
+
+                    const datasets = Object.entries(historicalData.value)
+                        .filter(([, data]) => data.some(entry => entry.humidity !== null))
+                        .map(([location, data], index) => {
+                            const colors = ['#ff6384', '#36a2eb', '#ffce56', '#4bc0c0', '#9966ff'];
+                            return {
+                                label: location,
+                                data: data
+                                    .filter(entry => entry.humidity !== null)
+                                    .map(entry => ({
+                                        x: new Date(entry.timestamp),
+                                        y: entry.humidity
+                                    })),
+                                borderColor: colors[index % colors.length],
+                                backgroundColor: colors[index % colors.length] + '20',
+                                tension: 0.1,
+                                fill: false
+                            };
+                        });
+
+                    const config = {
+                        type: 'line',
+                        data: { datasets },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: {
+                                mode: 'index',
+                                intersect: false,
+                            },
+                            scales: {
+                                x: {
+                                    type: 'time',
+                                    time: {
+                                        displayFormats: {
+                                            hour: 'HH:mm',
+                                            day: 'MMM DD'
+                                        }
+                                    },
+                                    title: {
+                                        display: true,
+                                        text: 'Time'
+                                    }
+                                },
+                                y: {
+                                    title: {
+                                        display: true,
+                                        text: 'Humidity (%)'
+                                    },
+                                    min: 0,
+                                    max: 100
+                                }
+                            },
+                            plugins: {
+                                legend: {
+                                    position: 'top',
+                                },
+                                tooltip: {
+                                    mode: 'index',
+                                    intersect: false,
+                                }
+                            }
+                        }
+                    };
+
+                        if (humidityChart) {
+                            humidityChart.destroy();
+                        }
+                        console.log('Creating humidity chart with config:', config);
+                        humidityChart = new Chart(ctx, config);
+                        console.log('Humidity chart created successfully');
+                    }, 50); // Small delay to ensure DOM is ready
+                };
+
+                const refreshData = async () => {
+                    loading.value = true;
+                    error.value = null;
+
+                    try {
+                        await Promise.all([
+                            fetchCurrentData(),
+                            fetchHistoricalData()
+                        ]);
+
+                        // Wait for DOM update before creating charts
+                        await new Promise(resolve => setTimeout(resolve, 200));
+                        createTemperatureChart();
+                        createHumidityChart();
+                    } catch (err) {
+                        error.value = err.message || 'Failed to load data';
+                    } finally {
+                        loading.value = false;
+                    }
+                };
+
+                const changeTimeRange = async (hours) => {
+                    selectedTimeRange.value = hours;
+                    await fetchHistoricalData();
+                    createTemperatureChart();
+                    createHumidityChart();
+                };
+
+                const updateRefreshCounter = () => {
+                    reload_counter.value -= 1000;
+                    if (reload_counter.value < 0) {
+                        reload_counter.value = reload_interval;
+                    }
+                };
+
+                const formatCounter = (milliseconds) => {
+                    const mins = Math.floor(milliseconds / 60000);
+                    const secs = Math.floor((milliseconds % 60000) / 1000);
+                    return `${mins}:${secs.toString().padStart(2, '0')}`;
+                };
+
+                onMounted(() => {
+                    refreshData();
+                    // Auto-refresh every 5 minutes
+                    setInterval(refreshData, reload_interval);
+                    setInterval(updateRefreshCounter, 1000);
+                });
+
+                return {
+                    currentTemperatures,
+                    historicalData,
+                    loading,
+                    error,
+                    selectedTimeRange,
+                    hasHumidityData,
+                    refreshData,
+                    changeTimeRange,
+                    getLocationIcon,
+                    getCardClass,
+                    getTemperatureColor,
+                    formatTimestamp,
+                    reload_counter,
+                    formatCounter
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
