@@ -100,8 +100,10 @@ def temeperature_data(request):
     current_data = []
 
     # Get unique locations first using a more reliable method
-    unique_locations = set(
-        Temperature.objects.values_list('location', flat=True))
+    # unique_locations = set(
+    #     Temperature.objects.values_list('location', flat=True))
+
+    unique_locations = ["Living Room", "Bedroom", "Office", "Outdoor"]
 
     for location in unique_locations:
         latest = Temperature.objects.filter(
