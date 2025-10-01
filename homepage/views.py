@@ -1,10 +1,11 @@
 import os
 from datetime import timedelta
 
+from switchbot import SwitchBot
+
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
-from switchbot import SwitchBot
 
 from homepage.models import Temperature
 

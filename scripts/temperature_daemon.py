@@ -6,11 +6,12 @@ import time
 from pathlib import Path
 from typing import Optional
 
-import django
-from django.utils import timezone
 # Load environment variables from .env file
 from dotenv import load_dotenv
 from switchbot import SwitchBot
+
+import django
+from django.utils import timezone
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
