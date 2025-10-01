@@ -12,18 +12,11 @@ DATABASES = {
     }
 }
 
-# Disable migrations during testing for speed
-
-
-class DisableMigrations:
-    def __contains__(self, item):
-        return True
-
-    def __getitem__(self, item):
-        return None
-
-
-MIGRATION_MODULES = DisableMigrations()
+# Keep migrations for core Django apps but disable for custom apps if needed
+# This ensures django_content_type and other essential tables are created
+# MIGRATION_MODULES = {
+#     'homepage': None,  # Disable only custom app migrations if needed
+# }
 
 # Reduce password hashing rounds for faster tests
 PASSWORD_HASHERS = [
