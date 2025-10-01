@@ -1,0 +1,100 @@
+name: Dependency Updates
+
+on:
+  schedule:
+    # Run every Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  update-dependencies:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install pip-tools
+      run: |
+        pip install pip-tools
+    
+    - name: Update requirements
+      run: |
+        # If you have a requirements.in file
+        # pip-compile requirements.in
+        
+        # For now, just check for outdated packages
+        pip install -r requirements.txt
+        pip list --outdated --format=json > outdated-packages.json
+    
+    - name: Check for security vulnerabilities
+      run: |
+        pip install safety
+        safety check --json --output safety-report.json || true
+    
+    - name: Create dependency update report
+      run: |
+        echo "# Dependency Update Report" > dependency-report.md
+        echo "Generated on: $(date)" >> dependency-report.md
+        echo "" >> dependency-report.md
+        
+        if [ -s outdated-packages.json ]; then
+          echo "## Outdated Packages" >> dependency-report.md
+          cat outdated-packages.json >> dependency-report.md
+          echo "" >> dependency-report.md
+        fi
+        
+        if [ -f safety-report.json ]; then
+          echo "## Security Vulnerabilities" >> dependency-report.md
+          cat safety-report.json >> dependency-report.md
+        fi
+    
+    - name: Upload dependency report
+      uses: actions/upload-artifact@v3
+      with:
+        name: dependency-report
+        path: |
+          dependency-report.md
+          outdated-packages.json
+          safety-report.json
+
+  auto-update-minor:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Update minor versions
+      run: |
+        pip install pip-tools
+        # This would update minor versions automatically
+        # pip-compile --upgrade requirements.in
+        echo "Minor version updates would be applied here"
+    
+    - name: Run tests with updated dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install pytest pytest-django pytest-cov
+        python manage.py test --settings=temperature.test_settings
+    
+    - name: Create pull request
+      if: success()
+      run: |
+        # This would create a PR with the updated dependencies
+        echo "Would create PR with updated dependencies"

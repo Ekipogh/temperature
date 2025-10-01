@@ -1,0 +1,257 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags like v1.0.0
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch all history for changelog generation
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install python-dotenv
+    
+    - name: Run full test suite
+      run: |
+        cat > .env << EOF
+        SWITCHBOT_TOKEN=test_token
+        SWITCHBOT_SECRET=test_secret
+        LIVING_ROOM_MAC=TEST_MAC_001
+        BEDROOM_MAC=TEST_MAC_002
+        OFFICE_MAC=TEST_MAC_003
+        OUTDOOR_MAC=TEST_MAC_004
+        EOF
+        
+        python manage.py test --settings=temperature.test_settings
+    
+    - name: Generate changelog
+      run: |
+        # Get version from tag
+        VERSION=${GITHUB_REF#refs/tags/}
+        echo "Creating release for version: $VERSION"
+        
+        # Generate changelog since last tag
+        git log --pretty=format:"- %s (%h)" $(git describe --tags --abbrev=0 HEAD^)..HEAD > CHANGELOG.md
+        
+        echo "# Temperature Monitor $VERSION" > RELEASE_NOTES.md
+        echo "" >> RELEASE_NOTES.md
+        echo "## What's New" >> RELEASE_NOTES.md
+        cat CHANGELOG.md >> RELEASE_NOTES.md
+        echo "" >> RELEASE_NOTES.md
+        echo "## Installation" >> RELEASE_NOTES.md
+        echo "1. Clone the repository" >> RELEASE_NOTES.md
+        echo "2. Install dependencies: \`pip install -r requirements.txt\`" >> RELEASE_NOTES.md
+        echo "3. Copy .env.example to .env and configure your SwitchBot credentials" >> RELEASE_NOTES.md
+        echo "4. Run migrations: \`python manage.py migrate\`" >> RELEASE_NOTES.md
+        echo "5. Start the daemon: \`python scripts/temperature_daemon.py\`" >> RELEASE_NOTES.md
+        echo "6. Access the dashboard at http://localhost:8000" >> RELEASE_NOTES.md
+    
+    - name: Create deployment package
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/}
+        
+        # Create deployment directory
+        mkdir -p deploy/temperature-monitor-$VERSION
+        
+        # Copy application files
+        cp -r homepage/ deploy/temperature-monitor-$VERSION/
+        cp -r scripts/ deploy/temperature-monitor-$VERSION/
+        cp -r temperature/ deploy/temperature-monitor-$VERSION/
+        cp manage.py deploy/temperature-monitor-$VERSION/
+        cp requirements.txt deploy/temperature-monitor-$VERSION/
+        cp .env.example deploy/temperature-monitor-$VERSION/
+        cp backup_utility.py deploy/temperature-monitor-$VERSION/
+        cp database_maintenance.py deploy/temperature-monitor-$VERSION/
+        cp README.md deploy/temperature-monitor-$VERSION/ 2>/dev/null || echo "README.md not found"
+        
+        # Create deployment scripts
+        cat > deploy/temperature-monitor-$VERSION/deploy.sh << 'EOF'
+        #!/bin/bash
+        set -e
+        
+        echo "🚀 Deploying Temperature Monitor"
+        
+        # Install dependencies
+        pip install -r requirements.txt
+        
+        # Run migrations
+        python manage.py migrate
+        
+        # Collect static files
+        python manage.py collectstatic --noinput
+        
+        # Create backup
+        python backup_utility.py create
+        
+        echo "✅ Deployment complete!"
+        echo "To start the daemon: python scripts/temperature_daemon.py"
+        echo "To start the web server: python manage.py runserver"
+        EOF
+        
+        chmod +x deploy/temperature-monitor-$VERSION/deploy.sh
+        
+        # Create systemd service file
+        cat > deploy/temperature-monitor-$VERSION/temperature-daemon.service << 'EOF'
+        [Unit]
+        Description=Temperature Monitor Daemon
+        After=network.target
+        
+        [Service]
+        Type=simple
+        User=temperature
+        WorkingDirectory=/opt/temperature-monitor
+        Environment=PATH=/opt/temperature-monitor/.venv/bin
+        ExecStart=/opt/temperature-monitor/.venv/bin/python scripts/temperature_daemon.py
+        Restart=always
+        RestartSec=10
+        
+        [Install]
+        WantedBy=multi-user.target
+        EOF
+        
+        # Create archive
+        cd deploy
+        tar -czf temperature-monitor-$VERSION.tar.gz temperature-monitor-$VERSION/
+        cd ..
+    
+    - name: Run security scan on release
+      run: |
+        pip install safety bandit
+        safety check
+        bandit -r homepage/ scripts/ temperature/ -f json -o security-report.json || true
+    
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        body_path: RELEASE_NOTES.md
+        files: |
+          deploy/temperature-monitor-*.tar.gz
+          security-report.json
+        draft: false
+        prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Upload release artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: release-package
+        path: |
+          deploy/temperature-monitor-*.tar.gz
+          RELEASE_NOTES.md
+          security-report.json
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: create-release
+    if: success()
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Create Dockerfile
+      run: |
+        cat > Dockerfile << 'EOF'
+        FROM python:3.11-slim
+        
+        WORKDIR /app
+        
+        # Install system dependencies
+        RUN apt-get update && apt-get install -y \
+            gcc \
+            && rm -rf /var/lib/apt/lists/*
+        
+        # Install Python dependencies
+        COPY requirements.txt .
+        RUN pip install --no-cache-dir -r requirements.txt
+        
+        # Copy application code
+        COPY . .
+        
+        # Create non-root user
+        RUN useradd --create-home --shell /bin/bash temperature
+        RUN chown -R temperature:temperature /app
+        USER temperature
+        
+        # Expose port
+        EXPOSE 8000
+        
+        # Health check
+        HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+            CMD python manage.py check || exit 1
+        
+        # Default command
+        CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+        EOF
+    
+    - name: Build Docker image
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/}
+        docker build -t temperature-monitor:$VERSION .
+        docker build -t temperature-monitor:latest .
+    
+    - name: Test Docker image
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/}
+        
+        # Create test environment
+        cat > test.env << EOF
+        SWITCHBOT_TOKEN=test_token
+        SWITCHBOT_SECRET=test_secret
+        LIVING_ROOM_MAC=TEST_MAC_001
+        BEDROOM_MAC=TEST_MAC_002
+        OFFICE_MAC=TEST_MAC_003
+        OUTDOOR_MAC=TEST_MAC_004
+        EOF
+        
+        # Test that the container starts
+        docker run --rm --env-file test.env temperature-monitor:$VERSION python manage.py check --settings=temperature.test_settings
+    
+    - name: Save Docker image
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/}
+        docker save temperature-monitor:$VERSION | gzip > temperature-monitor-$VERSION-docker.tar.gz
+    
+    - name: Upload Docker image
+      uses: actions/upload-artifact@v3
+      with:
+        name: docker-image
+        path: temperature-monitor-*-docker.tar.gz
+
+  notify-deployment:
+    runs-on: ubuntu-latest
+    needs: [create-release, docker-build]
+    if: always()
+    
+    steps:
+    - name: Notify deployment status
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/}
+        
+        if [ "${{ needs.create-release.result }}" == "success" ] && [ "${{ needs.docker-build.result }}" == "success" ]; then
+          echo "✅ Release $VERSION created successfully"
+          echo "🐳 Docker image built and ready"
+          echo "📦 Deployment packages available"
+        else
+          echo "❌ Release $VERSION failed"
+          echo "create-release: ${{ needs.create-release.result }}"
+          echo "docker-build: ${{ needs.docker-build.result }}"
+        fi
