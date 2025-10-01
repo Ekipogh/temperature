@@ -136,6 +136,7 @@ jobs:
     - name: Performance checks
       run: |
         # Check for N+1 queries and other performance issues
+        python manage.py migrate --settings=temperature.test_settings
         python manage.py check --settings=temperature.settings
 
         # Test database query performance
