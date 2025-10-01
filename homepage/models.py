@@ -9,35 +9,34 @@ class Temperature(models.Model):
     location = models.CharField(
         max_length=100,
         db_index=True,  # Index for location-based queries
-        help_text="Location where temperature was measured"
+        help_text="Location where temperature was measured",
     )
     temperature = models.FloatField(
         validators=[
-            MinValueValidator(-50.0,
-                              message="Temperature cannot be below -50°C"),
-            MaxValueValidator(70.0, message="Temperature cannot be above 70°C")
+            MinValueValidator(-50.0, message="Temperature cannot be below -50°C"),
+            MaxValueValidator(70.0, message="Temperature cannot be above 70°C"),
         ],
-        help_text="Temperature in Celsius"
+        help_text="Temperature in Celsius",
     )
     humidity = models.FloatField(
         null=True,
         blank=True,
         validators=[
             MinValueValidator(0.0, message="Humidity cannot be below 0%"),
-            MaxValueValidator(100.0, message="Humidity cannot be above 100%")
+            MaxValueValidator(100.0, message="Humidity cannot be above 100%"),
         ],
-        help_text="Relative humidity percentage"
+        help_text="Relative humidity percentage",
     )
 
     class Meta:
         # Composite index for common query patterns
         indexes = [
-            models.Index(fields=['location', 'timestamp']),
+            models.Index(fields=["location", "timestamp"]),
             # Different order for different queries
-            models.Index(fields=['timestamp', 'location']),
+            models.Index(fields=["timestamp", "location"]),
         ]
         # REMOVED the unique constraint that was causing issues
-        ordering = ['-timestamp']  # Default ordering by newest first
+        ordering = ["-timestamp"]  # Default ordering by newest first
         verbose_name = "Temperature Reading"
         verbose_name_plural = "Temperature Readings"
 
@@ -47,8 +46,7 @@ class Temperature(models.Model):
 
         # Additional validation
         if self.location and len(self.location.strip()) == 0:
-            raise ValidationError(
-                "Location cannot be empty or just whitespace")
+            raise ValidationError("Location cannot be empty or just whitespace")
 
         # Normalize location name
         if self.location:
@@ -60,10 +58,14 @@ class Temperature(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        humidity_str = f", {self.humidity}% humidity" if self.humidity is not None else ""
-        return f"{self.location} - {self.temperature}°C{humidity_str} at {self.timestamp}"
+        humidity_str = (
+            f", {self.humidity}% humidity" if self.humidity is not None else ""
+        )
+        return (
+            f"{self.location} - {self.temperature}°C{humidity_str} at {self.timestamp}"
+        )
 
     @property
     def temperature_fahrenheit(self):
         """Convert temperature to Fahrenheit."""
-        return (self.temperature * 9/5) + 32
+        return (self.temperature * 9 / 5) + 32

@@ -11,8 +11,9 @@ class TemperatureTestMixin:
     """Mixin class providing common test utilities for temperature tests."""
 
     @staticmethod
-    def create_test_temperature(location='Test Location', temperature=20.0,
-                                humidity=50.0, timestamp=None):
+    def create_test_temperature(
+        location="Test Location", temperature=20.0, humidity=50.0, timestamp=None
+    ):
         """Create a test temperature record with default values."""
         if timestamp is None:
             timestamp = timezone.now()
@@ -21,12 +22,13 @@ class TemperatureTestMixin:
             timestamp=timestamp,
             location=location,
             temperature=temperature,
-            humidity=humidity
+            humidity=humidity,
         )
 
     @staticmethod
-    def create_temperature_series(location, count=5, base_temperature=20.0,
-                                  base_humidity=50.0, interval_minutes=5):
+    def create_temperature_series(
+        location, count=5, base_temperature=20.0, base_humidity=50.0, interval_minutes=5
+    ):
         """Create a series of temperature readings for testing."""
         temperatures = []
         base_time = timezone.now()
@@ -36,7 +38,7 @@ class TemperatureTestMixin:
                 timestamp=base_time - timedelta(minutes=i * interval_minutes),
                 location=location,
                 temperature=base_temperature + i,
-                humidity=base_humidity + i if base_humidity else None
+                humidity=base_humidity + i if base_humidity else None,
             )
             temperatures.append(temp)
 
@@ -45,7 +47,7 @@ class TemperatureTestMixin:
     @staticmethod
     def create_multi_location_data():
         """Create test data for multiple locations."""
-        locations = ['Living Room', 'Bedroom', 'Office', 'Outdoor']
+        locations = ["Living Room", "Bedroom", "Office", "Outdoor"]
         temperatures = []
         base_time = timezone.now()
 
@@ -55,7 +57,7 @@ class TemperatureTestMixin:
                 timestamp=base_time - timedelta(minutes=i),
                 location=location,
                 temperature=20.0 + i * 2,
-                humidity=50.0 + i * 5
+                humidity=50.0 + i * 5,
             )
             temperatures.append(temp)
 
@@ -65,7 +67,7 @@ class TemperatureTestMixin:
                     timestamp=base_time - timedelta(hours=j, minutes=i),
                     location=location,
                     temperature=20.0 + i * 2 - j,
-                    humidity=50.0 + i * 5 - j * 2
+                    humidity=50.0 + i * 5 - j * 2,
                 )
                 temperatures.append(historical_temp)
 
@@ -75,8 +77,14 @@ class TemperatureTestMixin:
 class MockSwitchBotDevice:
     """Mock SwitchBot device for testing."""
 
-    def __init__(self, temperature='22.5', humidity='65', battery=85,
-                 device_id='TEST123', device_type='wo_io_sensor'):
+    def __init__(
+        self,
+        temperature="22.5",
+        humidity="65",
+        battery=85,
+        device_id="TEST123",
+        device_type="wo_io_sensor",
+    ):
         self.temperature = temperature
         self.humidity = humidity
         self.battery = battery
@@ -91,12 +99,12 @@ class MockSwitchBotDevice:
             raise Exception(self._failure_message)
 
         return {
-            'version': 'V0.9',
-            'temperature': self.temperature,
-            'battery': self.battery,
-            'humidity': self.humidity,
-            'device_id': self.device_id,
-            'device_type': self.device_type
+            "version": "V0.9",
+            "temperature": self.temperature,
+            "battery": self.battery,
+            "humidity": self.humidity,
+            "device_id": self.device_id,
+            "device_type": self.device_type,
         }
 
     def set_failure(self, should_fail=True, message="Mock device error"):
@@ -137,60 +145,45 @@ class MockSwitchBot:
 # Test data constants
 SAMPLE_TEMPERATURE_DATA = [
     {
-        'location': 'Living Room',
-        'temperature': 22.5,
-        'humidity': 65.0,
-        'timestamp': None  # Will be set to timezone.now() when used
+        "location": "Living Room",
+        "temperature": 22.5,
+        "humidity": 65.0,
+        "timestamp": None,  # Will be set to timezone.now() when used
     },
-    {
-        'location': 'Bedroom',
-        'temperature': 21.0,
-        'humidity': 58.0,
-        'timestamp': None
-    },
-    {
-        'location': 'Office',
-        'temperature': 23.5,
-        'humidity': 62.0,
-        'timestamp': None
-    },
-    {
-        'location': 'Outdoor',
-        'temperature': 15.5,
-        'humidity': 85.0,
-        'timestamp': None
-    }
+    {"location": "Bedroom", "temperature": 21.0, "humidity": 58.0, "timestamp": None},
+    {"location": "Office", "temperature": 23.5, "humidity": 62.0, "timestamp": None},
+    {"location": "Outdoor", "temperature": 15.5, "humidity": 85.0, "timestamp": None},
 ]
 
 INVALID_TEMPERATURE_DATA = [
     {
-        'temperature': -60.0,  # Too low
-        'location': 'Test',
-        'humidity': 50.0,
-        'error': 'temperature_too_low'
+        "temperature": -60.0,  # Too low
+        "location": "Test",
+        "humidity": 50.0,
+        "error": "temperature_too_low",
     },
     {
-        'temperature': 80.0,  # Too high
-        'location': 'Test',
-        'humidity': 50.0,
-        'error': 'temperature_too_high'
+        "temperature": 80.0,  # Too high
+        "location": "Test",
+        "humidity": 50.0,
+        "error": "temperature_too_high",
     },
     {
-        'temperature': 20.0,
-        'location': 'Test',
-        'humidity': -5.0,  # Too low
-        'error': 'humidity_too_low'
+        "temperature": 20.0,
+        "location": "Test",
+        "humidity": -5.0,  # Too low
+        "error": "humidity_too_low",
     },
     {
-        'temperature': 20.0,
-        'location': 'Test',
-        'humidity': 105.0,  # Too high
-        'error': 'humidity_too_high'
+        "temperature": 20.0,
+        "location": "Test",
+        "humidity": 105.0,  # Too high
+        "error": "humidity_too_high",
     },
     {
-        'temperature': 20.0,
-        'location': '   ',  # Empty location
-        'humidity': 50.0,
-        'error': 'empty_location'
-    }
+        "temperature": 20.0,
+        "location": "   ",  # Empty location
+        "humidity": 50.0,
+        "error": "empty_location",
+    },
 ]

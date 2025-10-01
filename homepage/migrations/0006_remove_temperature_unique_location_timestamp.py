@@ -6,12 +6,15 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('homepage', '0005_alter_temperature_options_alter_temperature_humidity_and_more'),
+        (
+            "homepage",
+            "0005_alter_temperature_options_alter_temperature_humidity_and_more",
+        ),
     ]
 
     operations = [
         migrations.RemoveConstraint(
-            model_name='temperature',
-            name='unique_location_timestamp',
+            model_name="temperature",
+            name="unique_location_timestamp",
         ),
     ]

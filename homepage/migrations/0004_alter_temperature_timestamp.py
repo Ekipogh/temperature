@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('homepage', '0003_rename_value_temperature_temperature'),
+        ("homepage", "0003_rename_value_temperature_temperature"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='temperature',
-            name='timestamp',
+            model_name="temperature",
+            name="timestamp",
             field=models.DateTimeField(),
         ),
     ]
