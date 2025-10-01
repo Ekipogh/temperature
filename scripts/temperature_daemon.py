@@ -9,11 +9,9 @@ import logging
 import signal
 from typing import Optional, Dict, Any
 
-# token = os.getenv("SWITCHBOT_TOKEN")
-# secret = os.getenv("SWITCHBOT_SECRET")
-
-# if not token or not secret:
-#     raise ValueError("SWITCHBOT_TOKEN and SWITCHBOT_SECRET must be set in environment variables")
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).parent.parent / '.env')
 
 # Adjust the Python path to include the project directory
 project_dir = Path(__file__).parent.parent  # Point to project root
@@ -51,6 +49,8 @@ class TemperatureDaemon:
 
         # Initialize devices
         self._init_devices()
+
+        self.iteration_counter = 0
 
         logger.info(
             f"TemperatureDaemon initialized with {len(self.devices)} devices")
@@ -126,6 +126,23 @@ class TemperatureDaemon:
 
         except Exception as e:
             logger.error(f"Error reading temperature from {device_name}: {e}")
+            
+            # Check if it's an authentication error
+            if "401" in str(e) or "authentication" in str(e).lower():
+                logger.warning(f"Authentication error for {device_name}, reinitializing SwitchBot connection")
+                try:
+                    self._init_switchbot()
+                    self._init_devices()
+                    # Retry once after reinitialization
+                    device = self.devices.get(device_name)
+                    if device:
+                        status = device.status()
+                        temperature = float(status.get("temperature"))
+                        if temperature is not None and (-50 <= temperature <= 70):
+                            return temperature
+                except Exception as retry_e:
+                    logger.error(f"Retry failed for {device_name}: {retry_e}")
+            
             return None
 
     def get_humidity(self, device_name) -> Optional[float]:
@@ -153,6 +170,23 @@ class TemperatureDaemon:
 
         except Exception as e:
             logger.error(f"Error reading humidity from {device_name}: {e}")
+            
+            # Check if it's an authentication error
+            if "401" in str(e) or "authentication" in str(e).lower():
+                logger.warning(f"Authentication error for {device_name}, reinitializing SwitchBot connection")
+                try:
+                    self._init_switchbot()
+                    self._init_devices()
+                    # Retry once after reinitialization
+                    device = self.devices.get(device_name)
+                    if device:
+                        status = device.status()
+                        humidity = float(status.get("humidity"))
+                        if humidity is not None and (0 <= humidity <= 100):
+                            return humidity
+                except Exception as retry_e:
+                    logger.error(f"Retry failed for {device_name}: {retry_e}")
+            
             return None
 
     def store_temperature(self, device_name: str, temperature: float, humidity: float) -> bool:
@@ -164,11 +198,13 @@ class TemperatureDaemon:
 
             # Validate inputs
             if not isinstance(temperature, (int, float)):
-                logger.error(f"Invalid temperature type for {device_name}: {type(temperature)}")
+                logger.error(
+                    f"Invalid temperature type for {device_name}: {type(temperature)}")
                 return False
-            
+
             if humidity is not None and not isinstance(humidity, (int, float)):
-                logger.error(f"Invalid humidity type for {device_name}: {type(humidity)}")
+                logger.error(
+                    f"Invalid humidity type for {device_name}: {type(humidity)}")
                 return False
 
             location_map = {
@@ -179,7 +215,7 @@ class TemperatureDaemon:
             }
 
             location = location_map.get(device_name, "Unknown")
-            
+
             if location == "Unknown":
                 logger.warning(f"Unknown device name: {device_name}")
 
@@ -195,7 +231,8 @@ class TemperatureDaemon:
                 temperature_record.full_clean()
                 temperature_record.save()
 
-            logger.info(f"Stored temperature {temperature}°C for {location}, humidity {humidity}%")
+            logger.info(
+                f"Stored temperature {temperature}°C for {location}, humidity {humidity}%")
             return True
 
         except Exception as e:
@@ -212,6 +249,9 @@ class TemperatureDaemon:
 
         try:
             while self.running:
+                self.iteration_counter += 1
+                logger.info(f"--- Daemon iteration {self.iteration_counter} ---")
+                
                 cycle_success = False
 
                 for device_name in self.devices.keys():
