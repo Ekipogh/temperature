@@ -4,7 +4,8 @@ Tests for the temperature daemon functionality.
 
 import os
 import tempfile
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from django.test import TestCase
 
 from homepage.models import Temperature

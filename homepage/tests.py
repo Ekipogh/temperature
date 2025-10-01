@@ -1,11 +1,13 @@
 import json
 import os
-from unittest.mock import patch, MagicMock
 from datetime import timedelta
-from django.test import TestCase, Client
+from unittest.mock import MagicMock, patch
+
+from django.core.exceptions import ValidationError
+from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
-from django.core.exceptions import ValidationError
+
 from homepage.models import Temperature
 from homepage.views import fetch_new_data
 

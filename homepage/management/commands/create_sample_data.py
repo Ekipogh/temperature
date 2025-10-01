@@ -1,8 +1,10 @@
-from django.core.management.base import BaseCommand
-from django.utils import timezone
-from homepage.models import Temperature
 import random
 from datetime import timedelta
+
+from django.core.management.base import BaseCommand
+from django.utils import timezone
+
+from homepage.models import Temperature
 
 
 class Command(BaseCommand):

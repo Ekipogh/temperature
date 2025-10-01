@@ -1,4 +1,5 @@
 from django.contrib import admin
+
 from .models import Temperature
 
 
@@ -26,6 +27,7 @@ class TemperatureAdmin(admin.ModelAdmin):
 
     def export_to_csv(self, request, queryset):
         import csv
+
         from django.http import HttpResponse
 
         response = HttpResponse(content_type="text/csv")

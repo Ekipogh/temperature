@@ -3,7 +3,9 @@ Test utilities and fixtures for the temperature monitoring system.
 """
 
 from datetime import timedelta
+
 from django.utils import timezone
+
 from homepage.models import Temperature
 
 

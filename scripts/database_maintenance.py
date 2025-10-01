@@ -4,13 +4,15 @@ Database maintenance script for temperature monitoring system.
 Provides utilities for analyzing, optimizing, and maintaining the database.
 """
 
-from homepage.models import Temperature
 import os
 import sys
-import django
-from pathlib import Path
-from django.db import connection
 from datetime import datetime, timedelta
+from pathlib import Path
+
+import django
+from django.db import connection
+
+from homepage.models import Temperature
 
 # Setup Django
 project_dir = Path(__file__).parent

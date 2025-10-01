@@ -1,16 +1,16 @@
-from switchbot import SwitchBot
-from pathlib import Path
+import logging
 import os
+import signal
 import sys
 import time
-import django
-from django.utils import timezone
-import logging
-import signal
+from pathlib import Path
 from typing import Optional
 
+import django
+from django.utils import timezone
 # Load environment variables from .env file
 from dotenv import load_dotenv
+from switchbot import SwitchBot
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
@@ -198,8 +198,9 @@ class TemperatureDaemon:
         """Store temperature reading in database with error handling and validation."""
         try:
             # Import here to avoid circular import issues
-            from homepage.models import Temperature
             from django.db import transaction
+
+            from homepage.models import Temperature
 
             # Validate inputs
             if not isinstance(temperature, (int, float)):

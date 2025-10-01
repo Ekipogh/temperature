@@ -4,12 +4,12 @@ Database backup utility for temperature monitoring system.
 Implements best practices for SQLite database backups.
 """
 
+import gzip
+import logging
 import shutil
 import sqlite3
-import gzip
-from pathlib import Path
 from datetime import datetime, timedelta
-import logging
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
