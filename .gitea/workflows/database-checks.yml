@@ -100,6 +100,17 @@ jobs:
       run: |
         python manage.py collectstatic --noinput --settings=temperature.settings
 
+    - name: Create test environment
+      run: |
+        cat > .env << EOF
+        SWITCHBOT_TOKEN=test_token
+        SWITCHBOT_SECRET=test_secret
+        LIVING_ROOM_MAC=TEST_MAC_001
+        BEDROOM_MAC=TEST_MAC_002
+        OFFICE_MAC=TEST_MAC_003
+        OUTDOOR_MAC=TEST_MAC_004
+        EOF
+
     - name: Test daemon configuration
       run: |
         python -c "
