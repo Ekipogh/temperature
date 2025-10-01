@@ -52,7 +52,9 @@ class TemperatureDaemonInitializationTests(TemperatureDaemonTestCase):
     @patch('scripts.temperature_daemon.SwitchBot')
     def test_daemon_initialization_success(self, mock_switchbot_class):
         """Test successful daemon initialization."""
-        from scripts.temperature_daemon import TemperatureDaemon
+        # Import here to avoid Django configuration issues
+        with patch('scripts.temperature_daemon.django.setup'):
+            from scripts.temperature_daemon import TemperatureDaemon
         
         # Mock SwitchBot and devices
         mock_switchbot = MockSwitchBot()
@@ -75,7 +77,9 @@ class TemperatureDaemonInitializationTests(TemperatureDaemonTestCase):
     @patch('scripts.temperature_daemon.SwitchBot')
     def test_daemon_initialization_missing_credentials(self, mock_switchbot_class):
         """Test daemon initialization with missing credentials."""
-        from scripts.temperature_daemon import TemperatureDaemon
+        # Import here to avoid Django configuration issues
+        with patch('scripts.temperature_daemon.django.setup'):
+            from scripts.temperature_daemon import TemperatureDaemon
         
         # Remove credentials from environment
         with patch.dict(os.environ, {}, clear=True):
@@ -88,7 +92,9 @@ class TemperatureDaemonInitializationTests(TemperatureDaemonTestCase):
     @patch('scripts.temperature_daemon.SwitchBot')
     def test_daemon_initialization_switchbot_failure(self, mock_switchbot_class):
         """Test daemon initialization when SwitchBot fails."""
-        from scripts.temperature_daemon import TemperatureDaemon
+        # Import here to avoid Django configuration issues
+        with patch('scripts.temperature_daemon.django.setup'):
+            from scripts.temperature_daemon import TemperatureDaemon
         
         # Mock SwitchBot to raise an exception
         mock_switchbot_class.side_effect = Exception("SwitchBot connection failed")
@@ -101,7 +107,9 @@ class TemperatureDaemonInitializationTests(TemperatureDaemonTestCase):
     @patch('scripts.temperature_daemon.SwitchBot')
     def test_daemon_device_initialization_partial_failure(self, mock_switchbot_class):
         """Test daemon when some devices fail to initialize."""
-        from scripts.temperature_daemon import TemperatureDaemon
+        # Import here to avoid Django configuration issues
+        with patch('scripts.temperature_daemon.django.setup'):
+            from scripts.temperature_daemon import TemperatureDaemon
         
         # Mock SwitchBot
         mock_switchbot = MagicMock()
@@ -124,7 +132,9 @@ class TemperatureDaemonInitializationTests(TemperatureDaemonTestCase):
     @patch('scripts.temperature_daemon.SwitchBot')
     def test_daemon_all_devices_fail(self, mock_switchbot_class):
         """Test daemon when all devices fail to initialize."""
-        from scripts.temperature_daemon import TemperatureDaemon
+        # Import here to avoid Django configuration issues
+        with patch('scripts.temperature_daemon.django.setup'):
+            from scripts.temperature_daemon import TemperatureDaemon
         
         # Mock SwitchBot
         mock_switchbot = MagicMock()
@@ -147,8 +157,11 @@ class TemperatureDaemonDataCollectionTests(TemperatureDaemonTestCase):
         
         # Import and patch here to avoid import issues
         self.switchbot_patcher = patch('scripts.temperature_daemon.SwitchBot')
+        self.django_setup_patcher = patch('scripts.temperature_daemon.django.setup')
         self.mock_switchbot_class = self.switchbot_patcher.start()
+        self.django_setup_patcher.start()
         
+        # Import after patching
         from scripts.temperature_daemon import TemperatureDaemon
         
         # Create mock devices
@@ -171,6 +184,7 @@ class TemperatureDaemonDataCollectionTests(TemperatureDaemonTestCase):
     def tearDown(self):
         """Clean up patches."""
         self.switchbot_patcher.stop()
+        self.django_setup_patcher.stop()
         super().tearDown()
     
     def test_get_temperature_success(self):
@@ -280,7 +294,9 @@ class TemperatureDaemonMainLoopTests(TemperatureDaemonTestCase):
     @patch('time.sleep')
     def test_daemon_run_single_cycle(self, mock_sleep, mock_switchbot_class):
         """Test daemon running a single cycle."""
-        from scripts.temperature_daemon import TemperatureDaemon
+        # Import here to avoid Django configuration issues
+        with patch('scripts.temperature_daemon.django.setup'):
+            from scripts.temperature_daemon import TemperatureDaemon
         
         # Mock SwitchBot
         mock_switchbot = MockSwitchBot()
@@ -321,7 +337,9 @@ class TemperatureDaemonMainLoopTests(TemperatureDaemonTestCase):
     @patch('time.sleep')
     def test_daemon_run_consecutive_failures(self, mock_sleep, mock_switchbot_class):
         """Test daemon handling of consecutive failures."""
-        from scripts.temperature_daemon import TemperatureDaemon
+        # Import here to avoid Django configuration issues
+        with patch('scripts.temperature_daemon.django.setup'):
+            from scripts.temperature_daemon import TemperatureDaemon
         
         # Mock SwitchBot with failing devices
         mock_switchbot = MockSwitchBot()
@@ -356,7 +374,9 @@ class TemperatureDaemonMainLoopTests(TemperatureDaemonTestCase):
     @patch('scripts.temperature_daemon.SwitchBot')
     def test_daemon_signal_handling(self, mock_switchbot_class):
         """Test daemon signal handling for graceful shutdown."""
-        from scripts.temperature_daemon import TemperatureDaemon
+        # Import here to avoid Django configuration issues
+        with patch('scripts.temperature_daemon.django.setup'):
+            from scripts.temperature_daemon import TemperatureDaemon
         import signal
         
         # Mock SwitchBot
