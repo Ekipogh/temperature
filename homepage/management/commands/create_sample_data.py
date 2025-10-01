@@ -1,50 +1,52 @@
-from django.core.management.base import BaseCommand
-from django.utils import timezone
-from homepage.models import Temperature
 import random
 from datetime import timedelta
 
+from django.core.management.base import BaseCommand
+from django.utils import timezone
+
+from homepage.models import Temperature
+
 
 class Command(BaseCommand):
-    help = 'Create sample temperature data for testing'
+    help = "Create sample temperature data for testing"
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--days',
+            "--days",
             type=int,
             default=7,
-            help='Number of days of sample data to create (default: 7)'
+            help="Number of days of sample data to create (default: 7)",
         )
         parser.add_argument(
-            '--clear',
-            action='store_true',
-            help='Clear existing data before creating new sample data'
+            "--clear",
+            action="store_true",
+            help="Clear existing data before creating new sample data",
         )
 
     def handle(self, *args, **options):
-        if options['clear']:
+        if options["clear"]:
             Temperature.objects.all().delete()
             self.stdout.write(
-                self.style.WARNING('Cleared all existing temperature data')
+                self.style.WARNING("Cleared all existing temperature data")
             )
 
-        days = options['days']
-        locations = ['Living Room', 'Bedroom', 'Office', 'Outdoor']
+        days = options["days"]
+        locations = ["Living Room", "Bedroom", "Office", "Outdoor"]
 
         # Temperature ranges for different locations
         temp_ranges = {
-            'Living Room': (20, 25),
-            'Bedroom': (18, 23),
-            'Office': (21, 26),
-            'Outdoor': (-5, 35)
+            "Living Room": (20, 25),
+            "Bedroom": (18, 23),
+            "Office": (21, 26),
+            "Outdoor": (-5, 35),
         }
 
         # Humidity ranges
         humidity_ranges = {
-            'Living Room': (40, 60),
-            'Bedroom': (45, 65),
-            'Office': (35, 55),
-            'Outdoor': (30, 90)
+            "Living Room": (40, 60),
+            "Bedroom": (45, 65),
+            "Office": (35, 55),
+            "Outdoor": (30, 90),
         }
 
         created_count = 0
@@ -64,7 +66,7 @@ class Command(BaseCommand):
                     humidity = round(random.uniform(min_hum, max_hum), 1)
 
                     # Add some seasonal variation for outdoor temps
-                    if location == 'Outdoor':
+                    if location == "Outdoor":
                         # Simulate day/night temperature variation
                         if 6 <= hour <= 18:  # Daytime
                             temperature += random.uniform(2, 5)
@@ -76,13 +78,13 @@ class Command(BaseCommand):
                         location=location,
                         temperature=temperature,
                         humidity=humidity,
-                        timestamp=timestamp
+                        timestamp=timestamp,
                     )
                     created_count += 1
 
         self.stdout.write(
             self.style.SUCCESS(
-                f'Successfully created {created_count} temperature records '
-                f'for {days} days'
+                f"Successfully created {created_count} temperature records "
+                f"for {days} days"
             )
         )

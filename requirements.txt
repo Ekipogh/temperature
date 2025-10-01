@@ -1,2 +1,22 @@
-Django>=5.0.0
+# Core Django and web framework
+Django>=5.2.0
+
+# SwitchBot integration
 python-switchbot
+
+# Environment variable management
+python-dotenv
+
+# Testing dependencies (for development)
+pytest>=7.0.0
+pytest-django
+pytest-cov
+
+# Code quality tools (for development)
+black
+isort
+flake8
+
+# Security scanning (for CI/CD)
+bandit
+safety

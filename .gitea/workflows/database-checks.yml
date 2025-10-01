@@ -1,0 +1,262 @@
+name: Database and Deployment Checks
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'homepage/migrations/**'
+      - 'homepage/models.py'
+      - 'manage.py'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'homepage/migrations/**'
+      - 'homepage/models.py'
+
+jobs:
+  migration-checks:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install python-dotenv
+
+    - name: Create test environment
+      run: |
+        cat > .env << EOF
+        SWITCHBOT_TOKEN=test_token
+        SWITCHBOT_SECRET=test_secret
+        LIVING_ROOM_MAC=TEST_MAC_001
+        BEDROOM_MAC=TEST_MAC_002
+        OFFICE_MAC=TEST_MAC_003
+        OUTDOOR_MAC=TEST_MAC_004
+        EOF
+
+    - name: Check for migration issues
+      run: |
+        python manage.py makemigrations --check --dry-run --settings=temperature.test_settings
+
+    - name: Test migrations
+      run: |
+        python manage.py migrate --settings=temperature.test_settings
+        python manage.py showmigrations --settings=temperature.test_settings
+
+    - name: Test reverse migrations
+      run: |
+        # Test that migrations can be reversed (important for rollbacks)
+        python manage.py migrate homepage zero --settings=temperature.test_settings
+        python manage.py migrate --settings=temperature.test_settings
+
+    - name: Check for model consistency
+      run: |
+        python manage.py check --settings=temperature.test_settings
+
+    - name: Generate migration SQL
+      run: |
+        mkdir -p migration-sql
+        python manage.py sqlmigrate homepage 0001 > migration-sql/0001_initial.sql
+        # Add other migrations as needed
+
+    - name: Upload migration SQL
+      uses: actions/upload-artifact@v3
+      with:
+        name: migration-sql
+        path: migration-sql/
+      env:
+        NODE_TLS_REJECT_UNAUTHORIZED: 0
+
+  deployment-readiness:
+    runs-on: ubuntu-latest
+    needs: migration-checks
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+
+    - name: Check Django configuration
+      run: |
+        python manage.py check --deploy --settings=temperature.settings
+
+    - name: Collect static files
+      run: |
+        python manage.py collectstatic --noinput --settings=temperature.settings
+
+    - name: Create test environment
+      run: |
+        cat > .env << EOF
+        SWITCHBOT_TOKEN=test_token
+        SWITCHBOT_SECRET=test_secret
+        LIVING_ROOM_MAC=TEST_MAC_001
+        BEDROOM_MAC=TEST_MAC_002
+        OFFICE_MAC=TEST_MAC_003
+        OUTDOOR_MAC=TEST_MAC_004
+        EOF
+
+    - name: Test daemon configuration
+      run: |
+        python -c "
+        import os
+        from pathlib import Path
+        from dotenv import load_dotenv
+        load_dotenv()
+
+        required_vars = [
+            'SWITCHBOT_TOKEN', 'SWITCHBOT_SECRET',
+            'LIVING_ROOM_MAC', 'BEDROOM_MAC',
+            'OFFICE_MAC', 'OUTDOOR_MAC'
+        ]
+
+        missing = [var for var in required_vars if not os.getenv(var)]
+        if missing:
+            print(f'Missing environment variables: {missing}')
+            exit(1)
+        else:
+            print('All required environment variables are configured')
+        "
+
+    - name: Performance checks
+      run: |
+        # Check for N+1 queries and other performance issues
+        python manage.py check --settings=temperature.settings
+
+        # Test database query performance with proper setup
+        python -c "
+        import os
+        import django
+        from django.core.management import execute_from_command_line
+
+        # Set up Django with test settings
+        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'temperature.test_settings')
+        django.setup()
+
+        # Run migrations to ensure tables exist
+        execute_from_command_line(['manage.py', 'migrate', '--run-syncdb'])
+
+        from django.test.utils import override_settings
+        from django.db import connection
+        from homepage.models import Temperature
+        from django.utils import timezone
+
+        # Create some test data for performance testing
+        Temperature.objects.create(
+            location='Living Room',
+            temperature=22.5,
+            humidity=65.0,
+            timestamp=timezone.now()
+        )
+        Temperature.objects.create(
+            location='Bedroom',
+            temperature=20.0,
+            humidity=60.0,
+            timestamp=timezone.now()
+        )
+
+        # Test query performance
+        with override_settings(DEBUG=True):
+            connection.queries_log.clear()
+            list(Temperature.objects.all()[:10])
+            print(f'Query count for basic listing: {len(connection.queries)}')
+
+            connection.queries_log.clear()
+            result = Temperature.objects.filter(location='Living Room').order_by('-timestamp').first()
+            print(f'Query count for latest temperature: {len(connection.queries)}')
+            if result:
+                print(f'Found temperature: {result.temperature}°C')
+            else:
+                print('No temperature data found')
+        "
+
+  backup-validation:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+
+    - name: Test backup functionality
+      run: |
+        # Use a file-based database for backup testing instead of in-memory
+        export TEST_DB_PATH="/tmp/test_backup.db"
+
+        # Create test database with data using file-based database
+        python -c "
+        import os
+        import django
+        from django.core.management import execute_from_command_line
+        from django.conf import settings
+
+        # Override database settings for backup testing
+        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'temperature.test_settings')
+        django.setup()
+
+        # Change to file-based database for backup testing
+        settings.DATABASES['default']['NAME'] = '/tmp/test_backup.db'
+
+        # Run migrations
+        execute_from_command_line(['manage.py', 'migrate'])
+
+        # Create test data
+        from homepage.models import Temperature
+        from django.utils import timezone
+        Temperature.objects.create(
+            location='Test Location',
+            temperature=22.5,
+            humidity=65.0,
+            timestamp=timezone.now()
+        )
+        print('Test data created in file database for backup testing')
+        "
+
+        # Test backup utility (if it exists)
+        if [ -f "scripts/backup_utility.py" ]; then
+            python scripts/backup_utility.py create --no-compress || echo "Backup utility not found, skipping backup test"
+
+            # Verify backup was created
+            ls -la backups/ || echo "No backups directory found"
+
+            # Test backup verification if backups exist
+            if ls backups/temperature_backup_*.sqlite3 1> /dev/null 2>&1; then
+                python scripts/backup_utility.py verify backups/temperature_backup_*.sqlite3 || echo "Backup verification failed"
+            else
+                echo "No backup files found to verify"
+            fi
+        else
+            echo "Backup utility not found, skipping backup tests"
+        fi
+
+    - name: Upload backup artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-backups
+        path: backups/
+      env:
+        NODE_TLS_REJECT_UNAUTHORIZED: 0

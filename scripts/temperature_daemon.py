@@ -1,40 +1,39 @@
-from switchbot import SwitchBot
-from pathlib import Path
+import logging
 import os
+import signal
 import sys
 import time
-import django
-from django.utils import timezone
-import logging
-import signal
-from typing import Optional, Dict, Any
+from pathlib import Path
+from typing import Optional
 
 # Load environment variables from .env file
 from dotenv import load_dotenv
-load_dotenv(Path(__file__).parent.parent / '.env')
+from switchbot import SwitchBot
+
+import django
+from django.utils import timezone
+
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 # Adjust the Python path to include the project directory
 project_dir = Path(__file__).parent.parent  # Point to project root
 sys.path.append(str(project_dir))
 
 # Setup Django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'temperature.settings')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "temperature.settings")
 django.setup()
 
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('temperature_daemon.log'),
-        logging.StreamHandler()
-    ]
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.FileHandler("temperature_daemon.log"), logging.StreamHandler()],
 )
 logger = logging.getLogger(__name__)
 
 
 class TemperatureDaemon:
-    '''A daemon to periodically read temperature from SwitchBot devices and store it in the Django database.'''
+    """A daemon to periodically read temperature from SwitchBot devices and store it in the Django database."""
 
     def __init__(self):
         self.running = True
@@ -52,8 +51,7 @@ class TemperatureDaemon:
 
         self.iteration_counter = 0
 
-        logger.info(
-            f"TemperatureDaemon initialized with {len(self.devices)} devices")
+        logger.info(f"TemperatureDaemon initialized with {len(self.devices)} devices")
 
     def _init_switchbot(self):
         """Initialize SwitchBot connection with proper error handling."""
@@ -62,7 +60,8 @@ class TemperatureDaemon:
 
         if not token or not secret:
             raise ValueError(
-                "SWITCHBOT_TOKEN and SWITCHBOT_SECRET must be set in environment variables")
+                "SWITCHBOT_TOKEN and SWITCHBOT_SECRET must be set in environment variables"
+            )
 
         try:
             self._bot = SwitchBot(token=token, secret=secret)
@@ -78,7 +77,7 @@ class TemperatureDaemon:
             "living_room_thermometer": os.getenv("LIVING_ROOM_MAC", "D40E84863006"),
             "bedroom_thermometer": os.getenv("BEDROOM_MAC", "D40E84861814"),
             "office_thermometer": os.getenv("OFFICE_MAC", "D628EA1C498F"),
-            "outdoor_thermometer": os.getenv("OUTDOOR_MAC", "D40E84064570")
+            "outdoor_thermometer": os.getenv("OUTDOOR_MAC", "D40E84064570"),
         }
 
         self.devices = {}
@@ -87,8 +86,7 @@ class TemperatureDaemon:
             try:
                 device = self._bot.device(id=mac_address)
                 self.devices[device_name] = device
-                logger.info(
-                    f"Initialized device: {device_name} ({mac_address})")
+                logger.info(f"Initialized device: {device_name} ({mac_address})")
             except Exception as e:
                 logger.error(f"Failed to initialize device {device_name}: {e}")
                 # Continue with other devices rather than failing completely
@@ -119,17 +117,20 @@ class TemperatureDaemon:
             # Validate temperature range (reasonable for indoor/outdoor temps)
             if not (-50 <= temperature <= 70):
                 logger.warning(
-                    f"Invalid temperature reading from {device_name}: {temperature}°C")
+                    f"Invalid temperature reading from {device_name}: {temperature}°C"
+                )
                 return None
 
             return temperature
 
         except Exception as e:
             logger.error(f"Error reading temperature from {device_name}: {e}")
-            
+
             # Check if it's an authentication error
             if "401" in str(e) or "authentication" in str(e).lower():
-                logger.warning(f"Authentication error for {device_name}, reinitializing SwitchBot connection")
+                logger.warning(
+                    f"Authentication error for {device_name}, reinitializing SwitchBot connection"
+                )
                 try:
                     self._init_switchbot()
                     self._init_devices()
@@ -142,7 +143,7 @@ class TemperatureDaemon:
                             return temperature
                 except Exception as retry_e:
                     logger.error(f"Retry failed for {device_name}: {retry_e}")
-            
+
             return None
 
     def get_humidity(self, device_name) -> Optional[float]:
@@ -163,17 +164,20 @@ class TemperatureDaemon:
             # Validate humidity range (0-100%)
             if not (0 <= humidity <= 100):
                 logger.warning(
-                    f"Invalid humidity reading from {device_name}: {humidity}%")
+                    f"Invalid humidity reading from {device_name}: {humidity}%"
+                )
                 return None
 
             return humidity
 
         except Exception as e:
             logger.error(f"Error reading humidity from {device_name}: {e}")
-            
+
             # Check if it's an authentication error
             if "401" in str(e) or "authentication" in str(e).lower():
-                logger.warning(f"Authentication error for {device_name}, reinitializing SwitchBot connection")
+                logger.warning(
+                    f"Authentication error for {device_name}, reinitializing SwitchBot connection"
+                )
                 try:
                     self._init_switchbot()
                     self._init_devices()
@@ -186,32 +190,37 @@ class TemperatureDaemon:
                             return humidity
                 except Exception as retry_e:
                     logger.error(f"Retry failed for {device_name}: {retry_e}")
-            
+
             return None
 
-    def store_temperature(self, device_name: str, temperature: float, humidity: float) -> bool:
+    def store_temperature(
+        self, device_name: str, temperature: float, humidity: float
+    ) -> bool:
         """Store temperature reading in database with error handling and validation."""
         try:
             # Import here to avoid circular import issues
-            from homepage.models import Temperature
             from django.db import transaction
+
+            from homepage.models import Temperature
 
             # Validate inputs
             if not isinstance(temperature, (int, float)):
                 logger.error(
-                    f"Invalid temperature type for {device_name}: {type(temperature)}")
+                    f"Invalid temperature type for {device_name}: {type(temperature)}"
+                )
                 return False
 
             if humidity is not None and not isinstance(humidity, (int, float)):
                 logger.error(
-                    f"Invalid humidity type for {device_name}: {type(humidity)}")
+                    f"Invalid humidity type for {device_name}: {type(humidity)}"
+                )
                 return False
 
             location_map = {
                 "living_room_thermometer": "Living Room",
                 "bedroom_thermometer": "Bedroom",
                 "office_thermometer": "Office",
-                "outdoor_thermometer": "Outdoor"
+                "outdoor_thermometer": "Outdoor",
             }
 
             location = location_map.get(device_name, "Unknown")
@@ -225,14 +234,15 @@ class TemperatureDaemon:
                     location=location,
                     temperature=temperature,
                     humidity=humidity,
-                    timestamp=timezone.now()
+                    timestamp=timezone.now(),
                 )
                 # Validate model before saving
                 temperature_record.full_clean()
                 temperature_record.save()
 
             logger.info(
-                f"Stored temperature {temperature}°C for {location}, humidity {humidity}%")
+                f"Stored temperature {temperature}°C for {location}, humidity {humidity}%"
+            )
             return True
 
         except Exception as e:
@@ -241,8 +251,7 @@ class TemperatureDaemon:
 
     def run(self):
         """Main daemon loop with comprehensive error handling."""
-        logger.info(
-            f"Starting temperature daemon with {self.interval}s interval")
+        logger.info(f"Starting temperature daemon with {self.interval}s interval")
 
         consecutive_failures = 0
         max_consecutive_failures = 5
@@ -251,7 +260,7 @@ class TemperatureDaemon:
             while self.running:
                 self.iteration_counter += 1
                 logger.info(f"--- Daemon iteration {self.iteration_counter} ---")
-                
+
                 cycle_success = False
 
                 for device_name in self.devices.keys():
@@ -261,29 +270,29 @@ class TemperatureDaemon:
 
                         if temperature is not None:
                             success = self.store_temperature(
-                                device_name, temperature,
-                                humidity=humidity)
+                                device_name, temperature, humidity=humidity
+                            )
                             if success:
                                 cycle_success = True
                         else:
                             logger.warning(
-                                f"Skipping storage for {device_name} due to invalid reading")
+                                f"Skipping storage for {device_name} due to invalid reading"
+                            )
 
                     except Exception as e:
-                        logger.error(
-                            f"Unexpected error processing {device_name}: {e}")
+                        logger.error(f"Unexpected error processing {device_name}: {e}")
 
                 # Track consecutive failures
                 if cycle_success:
                     consecutive_failures = 0
                 else:
                     consecutive_failures += 1
-                    logger.warning(
-                        f"Complete cycle failure #{consecutive_failures}")
+                    logger.warning(f"Complete cycle failure #{consecutive_failures}")
 
                     if consecutive_failures >= max_consecutive_failures:
                         logger.critical(
-                            f"Too many consecutive failures ({consecutive_failures}), stopping daemon")
+                            f"Too many consecutive failures ({consecutive_failures}), stopping daemon"
+                        )
                         break
 
                 # Sleep between cycles
