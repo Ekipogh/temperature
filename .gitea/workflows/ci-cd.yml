@@ -104,6 +104,8 @@ jobs:
       with:
         name: security-reports
         path: bandit-report.json
+      env:
+        NODE_TLS_REJECT_UNAUTHORIZED: 0
 
   code-quality:
     runs-on: ubuntu-latest
