@@ -7,7 +7,7 @@ import django
 from django.utils import timezone
 import logging
 import signal
-from typing import Optional, Dict, Any
+from typing import Optional
 
 # Load environment variables from .env file
 from dotenv import load_dotenv
@@ -126,10 +126,11 @@ class TemperatureDaemon:
 
         except Exception as e:
             logger.error(f"Error reading temperature from {device_name}: {e}")
-            
+
             # Check if it's an authentication error
             if "401" in str(e) or "authentication" in str(e).lower():
-                logger.warning(f"Authentication error for {device_name}, reinitializing SwitchBot connection")
+                logger.warning(
+                    f"Authentication error for {device_name}, reinitializing SwitchBot connection")
                 try:
                     self._init_switchbot()
                     self._init_devices()
@@ -142,7 +143,7 @@ class TemperatureDaemon:
                             return temperature
                 except Exception as retry_e:
                     logger.error(f"Retry failed for {device_name}: {retry_e}")
-            
+
             return None
 
     def get_humidity(self, device_name) -> Optional[float]:
@@ -170,10 +171,11 @@ class TemperatureDaemon:
 
         except Exception as e:
             logger.error(f"Error reading humidity from {device_name}: {e}")
-            
+
             # Check if it's an authentication error
             if "401" in str(e) or "authentication" in str(e).lower():
-                logger.warning(f"Authentication error for {device_name}, reinitializing SwitchBot connection")
+                logger.warning(
+                    f"Authentication error for {device_name}, reinitializing SwitchBot connection")
                 try:
                     self._init_switchbot()
                     self._init_devices()
@@ -186,7 +188,7 @@ class TemperatureDaemon:
                             return humidity
                 except Exception as retry_e:
                     logger.error(f"Retry failed for {device_name}: {retry_e}")
-            
+
             return None
 
     def store_temperature(self, device_name: str, temperature: float, humidity: float) -> bool:
@@ -250,8 +252,9 @@ class TemperatureDaemon:
         try:
             while self.running:
                 self.iteration_counter += 1
-                logger.info(f"--- Daemon iteration {self.iteration_counter} ---")
-                
+                logger.info(
+                    f"--- Daemon iteration {self.iteration_counter} ---")
+
                 cycle_success = False
 
                 for device_name in self.devices.keys():

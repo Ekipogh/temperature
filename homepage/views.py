@@ -1,14 +1,11 @@
 import os
 from django.http import JsonResponse
 from django.shortcuts import render
-from django.db.models import Q
 from django.utils import timezone
 from datetime import timedelta
 
 from homepage.models import Temperature
-from switchbot import SwitchBot, Device
-
-# Create your views here.
+from switchbot import SwitchBot
 
 
 def fetch_new_data():

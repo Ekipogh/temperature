@@ -25,11 +25,14 @@ class Command(BaseCommand):
         if recent.exists():
             latest = recent.latest('timestamp')
             earliest = recent.earliest('timestamp')
-            self.stdout.write(f"Latest: {latest.timestamp} - {latest.location}: {latest.temperature}°C")
-            self.stdout.write(f"Earliest: {earliest.timestamp} - {earliest.location}: {earliest.temperature}°C")
+            self.stdout.write(
+                f"Latest: {latest.timestamp} - {latest.location}: {latest.temperature}°C")
+            self.stdout.write(
+                f"Earliest: {earliest.timestamp} - {earliest.location}: {earliest.temperature}°C")
         else:
             # Check what timestamps we actually have
             all_temps = Temperature.objects.order_by('-timestamp')[:5]
             self.stdout.write("Most recent records:")
             for temp in all_temps:
-                self.stdout.write(f"  {temp.timestamp} - {temp.location}: {temp.temperature}°C")
+                self.stdout.write(
+                    f"  {temp.timestamp} - {temp.location}: {temp.temperature}°C")

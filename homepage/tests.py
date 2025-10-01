@@ -147,11 +147,11 @@ class TemperatureViewTests(TestCase):
         """Set up test data and client."""
         self.client = Client()
         self.test_data = []
-        
+
         # Create test temperature data
         locations = ['Living Room', 'Bedroom', 'Office', 'Outdoor']
         base_time = timezone.now()
-        
+
         for i, location in enumerate(locations):
             for j in range(3):  # Create 3 readings per location
                 temp = Temperature.objects.create(
@@ -173,11 +173,11 @@ class TemperatureViewTests(TestCase):
         response = self.client.get(reverse('basic'))
         self.assertEqual(response.status_code, 200)
         self.assertIn('temeperature_data', response.context)
-        
+
         # Should have data for all 4 locations
         temp_data = response.context['temeperature_data']
         self.assertEqual(len(temp_data), 4)
-        
+
         # Check that all expected locations are present
         locations = [item['location'] for item in temp_data]
         expected_locations = ['Living Room', 'Bedroom', 'Office', 'Outdoor']
@@ -189,10 +189,10 @@ class TemperatureViewTests(TestCase):
         response = self.client.get(reverse('temperature_data'))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response['Content-Type'], 'application/json')
-        
+
         data = json.loads(response.content)
         self.assertEqual(len(data), 4)  # Should have 4 locations
-        
+
         # Check structure of returned data
         for item in data:
             self.assertIn('pk', item)
@@ -204,7 +204,8 @@ class TemperatureViewTests(TestCase):
     def test_temperature_data_api_manual_refresh(self):
         """Test temperature data API with manual refresh parameter."""
         with patch('homepage.views.fetch_new_data') as mock_fetch:
-            response = self.client.get(reverse('temperature_data'), {'manual': 'true'})
+            response = self.client.get(
+                reverse('temperature_data'), {'manual': 'true'})
             self.assertEqual(response.status_code, 200)
             mock_fetch.assert_called_once()
 
@@ -213,10 +214,10 @@ class TemperatureViewTests(TestCase):
         response = self.client.get(reverse('historical_data'))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response['Content-Type'], 'application/json')
-        
+
         data = json.loads(response.content)
         self.assertIsInstance(data, dict)
-        
+
         # Should have data for each location
         expected_locations = ['Living Room', 'Bedroom', 'Office', 'Outdoor']
         for location in expected_locations:
@@ -227,9 +228,9 @@ class TemperatureViewTests(TestCase):
         """Test historical data API with custom time range."""
         response = self.client.get(reverse('historical_data'), {'hours': '6'})
         self.assertEqual(response.status_code, 200)
-        
+
         data = json.loads(response.content)
-        
+
         # Verify data structure
         for location_data in data.values():
             for reading in location_data:
@@ -247,11 +248,11 @@ class TemperatureViewTests(TestCase):
             temperature=15.0,
             humidity=40.0
         )
-        
+
         # Request data for last 24 hours
         response = self.client.get(reverse('historical_data'), {'hours': '24'})
         data = json.loads(response.content)
-        
+
         # Old data should not be included
         self.assertNotIn('Test Location', data)
 
@@ -273,31 +274,32 @@ class FetchNewDataTests(TestCase):
         # Mock SwitchBot and device responses
         mock_switchbot = MagicMock()
         mock_switchbot_class.return_value = mock_switchbot
-        
+
         mock_device = MagicMock()
         mock_device.status.return_value = {
             'temperature': '22.5',
             'humidity': '65'
         }
         mock_switchbot.device.return_value = mock_device
-        
+
         # Call the function
         fetch_new_data()
-        
+
         # Verify SwitchBot was initialized with correct credentials
         mock_switchbot_class.assert_called_once_with(
             'test_token',
             'test_secret'
         )
-        
+
         # Verify devices were queried
         self.assertEqual(mock_switchbot.device.call_count, 4)
-        
+
         # Verify temperature records were created
         self.assertEqual(Temperature.objects.count(), 4)
-        
+
         # Check one of the created records
-        living_room_temp = Temperature.objects.filter(location='Living Room').first()
+        living_room_temp = Temperature.objects.filter(
+            location='Living Room').first()
         self.assertEqual(living_room_temp.temperature, 22.5)
         self.assertEqual(living_room_temp.humidity, 65.0)
 
@@ -312,13 +314,13 @@ class FetchNewDataTests(TestCase):
         mock_switchbot = MagicMock()
         mock_switchbot_class.return_value = mock_switchbot
         mock_switchbot.device.return_value = None
-        
+
         # Should not raise exception
         try:
             fetch_new_data()
         except Exception as e:
             self.fail(f"fetch_new_data raised an exception: {e}")
-        
+
         # No temperature records should be created
         self.assertEqual(Temperature.objects.count(), 0)
 
@@ -332,17 +334,18 @@ class FetchNewDataTests(TestCase):
         # Mock device that raises exception on status call
         mock_switchbot = MagicMock()
         mock_switchbot_class.return_value = mock_switchbot
-        
+
         mock_device = MagicMock()
-        mock_device.status.side_effect = Exception("Device communication error")
+        mock_device.status.side_effect = Exception(
+            "Device communication error")
         mock_switchbot.device.return_value = mock_device
-        
+
         # Should not raise exception
         try:
             fetch_new_data()
         except Exception as e:
             self.fail(f"fetch_new_data raised an exception: {e}")
-        
+
         # No temperature records should be created
         self.assertEqual(Temperature.objects.count(), 0)
 
@@ -363,22 +366,22 @@ class TemperatureIntegrationTests(TestCase):
             temperature=23.5,
             humidity=55.0
         )
-        
+
         # Test home page loads
         response = self.client.get(reverse('home'))
         self.assertEqual(response.status_code, 200)
-        
+
         # Test API endpoints work
         api_response = self.client.get(reverse('temperature_data'))
         self.assertEqual(api_response.status_code, 200)
-        
+
         historical_response = self.client.get(reverse('historical_data'))
         self.assertEqual(historical_response.status_code, 200)
-        
+
         # Verify data structure
         api_data = json.loads(api_response.content)
         historical_data = json.loads(historical_response.content)
-        
+
         self.assertEqual(len(api_data), 1)
         self.assertIn('Living Room', historical_data)
 
@@ -386,13 +389,13 @@ class TemperatureIntegrationTests(TestCase):
         """Test API endpoints behave correctly with no data."""
         # Ensure database is empty
         Temperature.objects.all().delete()
-        
+
         # Test current temperature API
         response = self.client.get(reverse('temperature_data'))
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
         self.assertEqual(data, [])
-        
+
         # Test historical data API
         response = self.client.get(reverse('historical_data'))
         self.assertEqual(response.status_code, 200)
@@ -402,7 +405,7 @@ class TemperatureIntegrationTests(TestCase):
     def test_multiple_readings_same_location(self):
         """Test system handles multiple readings for same location correctly."""
         base_time = timezone.now()
-        
+
         # Create multiple readings for same location
         for i in range(5):
             Temperature.objects.create(
@@ -411,13 +414,14 @@ class TemperatureIntegrationTests(TestCase):
                 temperature=20.0 + i,
                 humidity=50.0 + i
             )
-        
+
         # API should return only the latest reading
         response = self.client.get(reverse('temperature_data'))
         data = json.loads(response.content)
-        
+
         # Should only have one entry for the location (the latest)
-        test_location_data = [item for item in data if item['location'] == 'Test Location']
+        test_location_data = [
+            item for item in data if item['location'] == 'Test Location']
         # Note: Since we hardcoded locations in views, Test Location won't appear in API
         # Let's test with a known location instead
         if not test_location_data:
@@ -425,11 +429,12 @@ class TemperatureIntegrationTests(TestCase):
             self.assertIsInstance(data, list)
         else:
             self.assertEqual(len(test_location_data), 1)
-            self.assertEqual(test_location_data[0]['temperature'], 20.0)  # Latest reading
-        
+            # Latest reading
+            self.assertEqual(test_location_data[0]['temperature'], 20.0)
+
         # Historical data should include all readings
         historical_response = self.client.get(reverse('historical_data'))
         historical_data = json.loads(historical_response.content)
-        
+
         self.assertIn('Test Location', historical_data)
         self.assertEqual(len(historical_data['Test Location']), 5)

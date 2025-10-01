@@ -1,7 +1,6 @@
 from django.contrib import admin
 from .models import Temperature
 
-# Register your models here.
 
 @admin.register(Temperature)
 class TemperatureAdmin(admin.ModelAdmin):
@@ -40,14 +39,17 @@ class TemperatureAdmin(admin.ModelAdmin):
         response['Content-Disposition'] = 'attachment; filename="temperature_data.csv"'
 
         writer = csv.writer(response)
-        writer.writerow(['Location', 'Temperature (°C)', 'Humidity (%)', 'Timestamp'])
+        writer.writerow(['Location', 'Temperature (°C)',
+                        'Humidity (%)', 'Timestamp'])
 
         for temp in queryset:
-            writer.writerow([temp.location, temp.temperature, temp.humidity or '', temp.timestamp])
+            writer.writerow([temp.location, temp.temperature,
+                            temp.humidity or '', temp.timestamp])
 
         return response
 
     export_to_csv.short_description = "Export selected temperatures to CSV"
+
 
 # Customize admin site headers
 admin.site.site_header = "Temperature Monitoring Admin"
