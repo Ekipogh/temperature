@@ -1,5 +1,7 @@
+import json
 import os
-from datetime import timedelta
+from datetime import datetime, timedelta
+from pathlib import Path
 
 from switchbot import SwitchBot
 
@@ -8,6 +10,63 @@ from django.shortcuts import render
 from django.utils import timezone
 
 from homepage.models import Temperature
+
+
+def get_daemon_status():
+    """Get the current status of the temperature daemon."""
+    status_file = Path(__file__).parent.parent / "daemon_status.json"
+
+    default_status = {
+        "running": False,
+        "status": "unknown",
+        "last_update": None,
+        "error": "Status file not found"
+    }
+
+    try:
+        if not status_file.exists():
+            return default_status
+
+        with open(status_file, 'r') as f:
+            status_data = json.load(f)
+
+        # Check if the status is recent (within last 5 minutes)
+        if status_data.get('last_update'):
+            last_update = datetime.fromisoformat(status_data['last_update'])
+            now = datetime.now()
+
+            # Handle timezone-aware/naive datetime comparison
+            if last_update.tzinfo is None:
+                last_update = last_update.replace(tzinfo=now.tzinfo)
+            elif now.tzinfo is None:
+                now = now.replace(tzinfo=last_update.tzinfo)
+
+            time_diff = (now - last_update).total_seconds()
+
+            # Consider daemon stale if no update in 5 minutes
+            if time_diff > 300:
+                status_data['running'] = False
+                status_data['status'] = 'stale'
+                status_data['error'] = f'No update for {int(time_diff)} seconds'
+            else:
+                status_data['status'] = 'active' if status_data.get('running', False) else 'stopped'
+        else:
+            status_data['status'] = 'unknown'
+
+        return status_data
+
+    except json.JSONDecodeError as e:
+        return {
+            "running": False,
+            "status": "error",
+            "error": f"Invalid status file format: {e}"
+        }
+    except Exception as e:
+        return {
+            "running": False,
+            "status": "error",
+            "error": f"Error reading status: {e}"
+        }
 
 
 def fetch_new_data():
@@ -168,3 +227,41 @@ def historical_data(request):
         )
 
     return JsonResponse(data_by_location, safe=False)
+
+
+def daemon_status(request):
+    """Get the current status of the temperature daemon."""
+    status = get_daemon_status()
+    return JsonResponse(status, safe=False)
+
+
+def system_status(request):
+    """Get comprehensive system status including daemon and recent data."""
+    daemon_status_data = get_daemon_status()
+
+    # Get recent temperature data count
+    recent_cutoff = timezone.now() - timedelta(hours=1)
+    recent_readings_count = Temperature.objects.filter(timestamp__gte=recent_cutoff).count()
+
+    # Get last reading timestamp
+    last_reading = Temperature.objects.order_by('-timestamp').first()
+    last_reading_time = last_reading.timestamp.isoformat() if last_reading else None
+
+    # Get total readings count
+    total_readings = Temperature.objects.count()
+
+    system_status_data = {
+        "daemon": daemon_status_data,
+        "database": {
+            "total_readings": total_readings,
+            "recent_readings_count": recent_readings_count,
+            "last_reading_time": last_reading_time,
+            "database_size": Temperature.objects.count()
+        },
+        "system": {
+            "timestamp": timezone.now().isoformat(),
+            "status": "healthy" if daemon_status_data.get('running', False) and recent_readings_count > 0 else "warning"
+        }
+    }
+
+    return JsonResponse(system_status_data, safe=False)

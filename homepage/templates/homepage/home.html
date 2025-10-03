@@ -72,14 +72,31 @@
                         <h1 class="mb-0"><i class="fas fa-thermometer-half me-2"></i>Temperature Dashboard</h1>
                         <p class="text-muted">Real-time monitoring of temperature and humidity</p>
                     </div>
-                    <button v-on:click="refreshData" v-bind:disabled="loading" class="btn btn-primary">
-                        <i class="fas fa-sync-alt" v-bind:class="{'fa-spin': loading}"></i>
-                        <span v-if="loading">Refreshing...</span>
-                        <span v-else> Manual Refresh</span>
-                        <small class="d-block" style="font-size: 0.75em; opacity: 0.8;">
-                            Auto: [[ formatCounter(reload_counter) ]]
-                        </small>
-                    </button>
+                    <div class="d-flex align-items-center gap-3">
+                        <!-- Daemon Status Indicator -->
+                        <div class="d-flex align-items-center">
+                            <span class="badge me-2" v-bind:class="{
+                                'bg-success': daemonStatus.status === 'active',
+                                'bg-warning': daemonStatus.status === 'stale',
+                                'bg-danger': daemonStatus.status === 'stopped' || daemonStatus.status === 'error' || daemonStatus.status === 'unknown'
+                            }">
+                                <i class="fas fa-circle me-1" style="font-size: 0.6em;"></i>
+                                Daemon [[ daemonStatus.status || 'unknown' ]]
+                            </span>
+                            <small class="text-muted" v-if="daemonStatus.last_update" style="font-size: 0.75em;">
+                                Updated: [[ formatTime(daemonStatus.last_update) ]]
+                            </small>
+                        </div>
+
+                        <button v-on:click="refreshData" v-bind:disabled="loading" class="btn btn-primary">
+                            <i class="fas fa-sync-alt" v-bind:class="{'fa-spin': loading}"></i>
+                            <span v-if="loading">Refreshing...</span>
+                            <span v-else> Manual Refresh</span>
+                            <small class="d-block" style="font-size: 0.75em; opacity: 0.8;">
+                                Auto: [[ formatCounter(reload_counter) ]]
+                            </small>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -183,6 +200,7 @@
                 const loading = ref(false);
                 const error = ref(null);
                 const selectedTimeRange = ref(24);
+                const daemonStatus = ref({status: 'unknown', running: false});
                 let temperatureChart = null;
                 let humidityChart = null;
                 const reload_interval = 5 * 60 * 1000; // 5 minutes
@@ -435,6 +453,24 @@
                     }, 50); // Small delay to ensure DOM is ready
                 };
 
+                const fetchDaemonStatus = async () => {
+                    try {
+                        const response = await fetch('/api/daemon/status/');
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        const data = await response.json();
+                        daemonStatus.value = data;
+                    } catch (err) {
+                        console.error('Error fetching daemon status:', err);
+                        daemonStatus.value = {
+                            status: 'error',
+                            running: false,
+                            error: 'Failed to fetch daemon status'
+                        };
+                    }
+                };
+
                 const refreshData = async () => {
                     loading.value = true;
                     error.value = null;
@@ -442,7 +478,8 @@
                     try {
                         await Promise.all([
                             fetchCurrentData(true), // Manual refresh - fetch from devices
-                            fetchHistoricalData()
+                            fetchHistoricalData(),
+                            fetchDaemonStatus()
                         ]);
 
                         // Wait for DOM update before creating charts
@@ -465,7 +502,8 @@
                     try {
                         await Promise.all([
                             fetchCurrentData(),
-                            fetchHistoricalData()
+                            fetchHistoricalData(),
+                            fetchDaemonStatus()
                         ]);
 
                         // Update charts without DOM delay (they already exist)
@@ -507,6 +545,16 @@
                     setInterval(updateRefreshCounter, 1000);
                 });
 
+                const formatTime = (isoString) => {
+                    if (!isoString) return 'Never';
+                    const date = new Date(isoString);
+                    return date.toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                    });
+                };
+
                 return {
                     currentTemperatures,
                     historicalData,
@@ -514,12 +562,14 @@
                     error,
                     selectedTimeRange,
                     hasHumidityData,
+                    daemonStatus,
                     refreshData,
                     changeTimeRange,
                     getLocationIcon,
                     getCardClass,
                     getTemperatureColor,
                     formatTimestamp,
+                    formatTime,
                     reload_counter,
                     formatCounter
                 };

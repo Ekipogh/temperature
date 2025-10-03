@@ -131,3 +131,4 @@ static_collected/
 # Secret keys
 .secret
 secrets.json
+daemon_status.json
