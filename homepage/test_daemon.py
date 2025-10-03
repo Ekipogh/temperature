@@ -144,12 +144,11 @@ class TemperatureDaemonInitializationTests(TemperatureDaemonTestCase):
         mock_switchbot_class.return_value = mock_switchbot
         mock_switchbot.device.side_effect = Exception("No devices available")
 
-        with self.assertRaises(RuntimeError) as context:
-            TemperatureDaemon()
+        # Should not raise an exception, but should continue with 0 devices
+        daemon = TemperatureDaemon()
 
-        self.assertIn(
-            "No devices were successfully initialized", str(context.exception)
-        )
+        # Verify daemon was created but has no devices
+        self.assertEqual(len(daemon.devices), 0)
 
 
 class TemperatureDaemonDataCollectionTests(TemperatureDaemonTestCase):
@@ -235,9 +234,9 @@ class TemperatureDaemonDataCollectionTests(TemperatureDaemonTestCase):
         humidity = self.daemon.get_humidity("invalid_thermometer")
         self.assertIsNone(humidity)
 
-    def test_get_temperature_auth_error_retry(self):
-        """Test temperature reading with authentication error and retry."""
-        # First call fails with auth error, second succeeds
+    def test_get_temperature_auth_error_no_immediate_retry(self):
+        """Test temperature reading with authentication error - should return None."""
+        # First call fails with auth error
         device = self.mock_switchbot.devices["MAC001"]
         call_count = 0
 
@@ -250,10 +249,32 @@ class TemperatureDaemonDataCollectionTests(TemperatureDaemonTestCase):
 
         device.status = status_side_effect
 
-        # Should retry and succeed
+        # Should return None on auth error (daemon reinitializes but doesn't retry immediately)
         temperature = self.daemon.get_temperature("living_room_thermometer")
-        self.assertEqual(temperature, 22.5)
-        self.assertEqual(call_count, 2)
+        self.assertIsNone(temperature)
+        self.assertEqual(call_count, 1)
+
+    def test_get_temperature_rate_limit_retry(self):
+        """Test temperature reading with rate limit error and retry."""
+        # First call fails with rate limit error, second succeeds
+        device = self.mock_switchbot.devices["MAC001"]
+        call_count = 0
+
+        def status_side_effect():
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise Exception("HTTP 429: Rate limit exceeded")
+            return {"temperature": "22.5", "humidity": "65"}
+
+        device.status = status_side_effect
+
+        # Mock time.sleep to avoid actual delays in tests
+        with patch("time.sleep"):
+            # Should retry and succeed for rate limit errors
+            temperature = self.daemon.get_temperature("living_room_thermometer")
+            self.assertEqual(temperature, 22.5)
+            self.assertEqual(call_count, 2)
 
     def test_store_temperature_success(self):
         """Test successful temperature storage."""
