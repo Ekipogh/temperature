@@ -44,8 +44,10 @@ def get_daemon_status():
 
             time_diff = (now - last_update).total_seconds()
 
-            # Consider daemon stale if no update in 5 minutes
-            if time_diff > 300:
+            daemon_update_interval = status_data.get('update_interval', 300)  # Default to 5 minutes if not set
+
+            # Consider daemon stale if no update in <daemon_update_interval> minutes
+            if time_diff > daemon_update_interval:
                 status_data['running'] = False
                 status_data['status'] = 'stale'
                 status_data['error'] = f'No update for {int(time_diff)} seconds'

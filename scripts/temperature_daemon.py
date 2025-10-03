@@ -76,7 +76,8 @@ class TemperatureDaemon:
             "api_rate_limited": False,
             "rate_limit_retry_count": 0,
             "last_rate_limit_time": None,
-            "retry_interval": None
+            "retry_interval": None,
+            "update_interval": self.interval,
         }
 
         # Setup signal handlers for graceful shutdown
