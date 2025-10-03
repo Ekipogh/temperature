@@ -5,6 +5,7 @@ from pathlib import Path
 
 from switchbot import SwitchBot
 
+from django.db import models
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils import timezone

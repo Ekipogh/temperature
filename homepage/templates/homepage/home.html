@@ -116,8 +116,13 @@
                         <div class="humidity-value mb-2" v-if="location.humidity">
                             <i class="fas fa-tint me-1"></i>[[ location.humidity ]]%
                         </div>
-                        <div class="last-updated">
+                        <div class="last-updated mb-3">
                             <i class="fas fa-clock me-1"></i>[[ formatTimestamp(location.timestamp) ]]
+                        </div>
+                        <div class="mt-auto">
+                            <a :href="getDeviceDetailUrl(location.location)" class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-chart-line me-1"></i>View Details
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -232,6 +237,11 @@
                         'Outdoor': 'border-info'
                     };
                     return classes[location] || 'border-secondary';
+                };
+
+                const getDeviceDetailUrl = (location) => {
+                    const deviceName = location.toLowerCase().replace(/\s+/g, '-');
+                    return `/device/${deviceName}/`;
                 };
 
                 const getTemperatureColor = (temp) => {
@@ -567,6 +577,7 @@
                     changeTimeRange,
                     getLocationIcon,
                     getCardClass,
+                    getDeviceDetailUrl,
                     getTemperatureColor,
                     formatTimestamp,
                     formatTime,
