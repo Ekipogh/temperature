@@ -30,8 +30,7 @@ django.setup()
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.FileHandler(
-        "temperature_daemon.log"), logging.StreamHandler()],
+    handlers=[logging.FileHandler("temperature_daemon.log"), logging.StreamHandler()],
 )
 logger = logging.getLogger(__name__)
 
@@ -46,7 +45,8 @@ class TemperatureDaemon:
 
         # Increased rate limit sleep to 5 minutes to avoid hitting API limits
         self.rate_limit_sleep_time = int(
-            os.getenv("RATE_LIMIT_SLEEP_TIME", "300"))  # seconds
+            os.getenv("RATE_LIMIT_SLEEP_TIME", "300")
+        )  # seconds
 
         # Initialize retry state BEFORE device initialization
         self.rate_limit_retry_count = 0
@@ -90,8 +90,7 @@ class TemperatureDaemon:
         # Initialize devices (now all required attributes are available)
         self._init_devices()
 
-        logger.info(
-            f"TemperatureDaemon initialized with {len(self.devices)} devices")
+        logger.info(f"TemperatureDaemon initialized with {len(self.devices)} devices")
 
     def _init_switchbot(self):
         """Initialize SwitchBot connection with proper error handling."""
@@ -142,15 +141,23 @@ class TemperatureDaemon:
                     # Check for rate limiting (HTTP 429)
                     if "429" in str(e) or "rate limit" in error_str:
                         if attempt < max_attempts:
-                            logger.warning(f"Rate limit during device initialization for {device_name} (attempt {attempt}/{max_attempts})")
-                            self._handle_rate_limit_error(f"device initialization for {device_name}")
+                            logger.warning(
+                                f"Rate limit during device initialization for {device_name} (attempt {attempt}/{max_attempts})"
+                            )
+                            self._handle_rate_limit_error(
+                                f"device initialization for {device_name}"
+                            )
                             continue  # Retry after backoff
                         else:
-                            logger.error(f"Failed to initialize device {device_name} after {max_attempts} attempts due to rate limiting")
+                            logger.error(
+                                f"Failed to initialize device {device_name} after {max_attempts} attempts due to rate limiting"
+                            )
                             break
                     else:
                         # Non-rate-limit error
-                        logger.error(f"Failed to initialize device {device_name} (attempt {attempt}/{max_attempts}): {e}")
+                        logger.error(
+                            f"Failed to initialize device {device_name} (attempt {attempt}/{max_attempts}): {e}"
+                        )
                         if attempt < max_attempts:
                             time.sleep(5)  # Short delay for non-rate-limit errors
                         break  # Don't retry non-rate-limit errors
@@ -162,30 +169,36 @@ class TemperatureDaemon:
         # Handle the case where no devices were initialized
         if not self.devices:
             logger.error("No devices were successfully initialized after retries")
-            logger.info("Daemon will continue running and retry device initialization in the main loop")
+            logger.info(
+                "Daemon will continue running and retry device initialization in the main loop"
+            )
             # Don't crash - let the daemon continue and try again later
 
-    def _update_status(self, consecutive_failures: int = 0, successful_reading: bool = False):
+    def _update_status(
+        self, consecutive_failures: int = 0, successful_reading: bool = False
+    ):
         """Update the daemon status file for monitoring."""
         try:
             current_time = datetime.now()
             uptime = (current_time - self.start_time).total_seconds()
 
-            self.status.update({
-                "running": self.running,
-                "last_update": current_time.isoformat(),
-                "iteration_count": self.iteration_counter,
-                "consecutive_failures": consecutive_failures,
-                "uptime_seconds": int(uptime),
-                "pid": os.getpid()
-            })
+            self.status.update(
+                {
+                    "running": self.running,
+                    "last_update": current_time.isoformat(),
+                    "iteration_count": self.iteration_counter,
+                    "consecutive_failures": consecutive_failures,
+                    "uptime_seconds": int(uptime),
+                    "pid": os.getpid(),
+                }
+            )
 
             if successful_reading:
                 self.status["last_successful_reading"] = current_time.isoformat()
                 self.last_successful_reading = current_time
 
             # Write status to file
-            with open(self.status_file, 'w') as f:
+            with open(self.status_file, "w") as f:
                 json.dump(self.status, f, indent=2)
 
         except Exception as e:
@@ -206,8 +219,8 @@ class TemperatureDaemon:
 
         # Exponential backoff: base * (2^retry_count) with max cap
         delay = min(
-            self.base_retry_interval * (2 ** self.rate_limit_retry_count),
-            self.max_retry_interval
+            self.base_retry_interval * (2**self.rate_limit_retry_count),
+            self.max_retry_interval,
         )
 
         # Add jitter (±25%) to avoid thundering herd
@@ -247,7 +260,9 @@ class TemperatureDaemon:
     def _reset_rate_limit_state(self):
         """Reset rate limiting state after successful API call."""
         if self.rate_limit_retry_count > 0:
-            logger.info(f"API call successful after {self.rate_limit_retry_count} rate limit retries")
+            logger.info(
+                f"API call successful after {self.rate_limit_retry_count} rate limit retries"
+            )
             self.rate_limit_retry_count = 0
             self.status["rate_limit_retry_count"] = 0
             self.status["next_retry_interval"] = None
@@ -290,23 +305,33 @@ class TemperatureDaemon:
                 # Handle rate limiting with exponential backoff
                 if "429" in str(e) or "rate limit" in error_str:
                     if attempt < max_attempts - 1:  # Don't retry on last attempt
-                        logger.warning(f"Rate limit during temperature reading for {device_name} (attempt {attempt + 1}/{max_attempts})")
-                        self._handle_rate_limit_error(f"temperature reading for {device_name}")
+                        logger.warning(
+                            f"Rate limit during temperature reading for {device_name} (attempt {attempt + 1}/{max_attempts})"
+                        )
+                        self._handle_rate_limit_error(
+                            f"temperature reading for {device_name}"
+                        )
                         continue  # Retry after backoff
                     else:
-                        logger.error(f"Failed to get temperature from {device_name} after {max_attempts} attempts due to rate limiting")
+                        logger.error(
+                            f"Failed to get temperature from {device_name} after {max_attempts} attempts due to rate limiting"
+                        )
                         return None
 
                 # Handle authentication errors
                 elif "401" in str(e) or "authentication" in error_str:
-                    logger.warning(f"Authentication error for {device_name}, reinitializing SwitchBot connection")
+                    logger.warning(
+                        f"Authentication error for {device_name}, reinitializing SwitchBot connection"
+                    )
                     try:
                         self._init_switchbot()
                         self._init_devices()
                         # Don't retry here, let the next iteration handle it
                         return None
                     except Exception as init_e:
-                        logger.error(f"Failed to reinitialize after auth error: {init_e}")
+                        logger.error(
+                            f"Failed to reinitialize after auth error: {init_e}"
+                        )
                         return None
                 else:
                     # Other errors - log and return None
@@ -352,23 +377,33 @@ class TemperatureDaemon:
                 # Handle rate limiting with exponential backoff
                 if "429" in str(e) or "rate limit" in error_str:
                     if attempt < max_attempts - 1:  # Don't retry on last attempt
-                        logger.warning(f"Rate limit during humidity reading for {device_name} (attempt {attempt + 1}/{max_attempts})")
-                        self._handle_rate_limit_error(f"humidity reading for {device_name}")
+                        logger.warning(
+                            f"Rate limit during humidity reading for {device_name} (attempt {attempt + 1}/{max_attempts})"
+                        )
+                        self._handle_rate_limit_error(
+                            f"humidity reading for {device_name}"
+                        )
                         continue  # Retry after backoff
                     else:
-                        logger.error(f"Failed to get humidity from {device_name} after {max_attempts} attempts due to rate limiting")
+                        logger.error(
+                            f"Failed to get humidity from {device_name} after {max_attempts} attempts due to rate limiting"
+                        )
                         return None
 
                 # Handle authentication errors
                 elif "401" in str(e) or "authentication" in error_str:
-                    logger.warning(f"Authentication error for {device_name}, reinitializing SwitchBot connection")
+                    logger.warning(
+                        f"Authentication error for {device_name}, reinitializing SwitchBot connection"
+                    )
                     try:
                         self._init_switchbot()
                         self._init_devices()
                         # Don't retry here, let the next iteration handle it
                         return None
                     except Exception as init_e:
-                        logger.error(f"Failed to reinitialize after auth error: {init_e}")
+                        logger.error(
+                            f"Failed to reinitialize after auth error: {init_e}"
+                        )
                         return None
                 else:
                     # Other errors - log and return None
@@ -435,8 +470,7 @@ class TemperatureDaemon:
 
     def run(self):
         """Main daemon loop with comprehensive error handling."""
-        logger.info(
-            f"Starting temperature daemon with {self.interval}s interval")
+        logger.info(f"Starting temperature daemon with {self.interval}s interval")
 
         consecutive_failures = 0
         max_consecutive_failures = 5
@@ -444,16 +478,19 @@ class TemperatureDaemon:
         try:
             while self.running:
                 self.iteration_counter += 1
-                logger.info(
-                    f"--- Daemon iteration {self.iteration_counter} ---")
+                logger.info(f"--- Daemon iteration {self.iteration_counter} ---")
 
                 # Check if we have devices, if not try to initialize them
                 if not self.devices:
-                    logger.warning("No devices available, attempting to re-initialize...")
+                    logger.warning(
+                        "No devices available, attempting to re-initialize..."
+                    )
                     try:
                         self._init_devices()
                         if not self.devices:
-                            logger.warning("Device re-initialization failed, will retry next cycle")
+                            logger.warning(
+                                "Device re-initialization failed, will retry next cycle"
+                            )
                     except Exception as e:
                         logger.error(f"Error during device re-initialization: {e}")
 
@@ -479,7 +516,8 @@ class TemperatureDaemon:
 
                         except Exception as e:
                             logger.error(
-                                f"Unexpected error processing {device_name}: {e}")
+                                f"Unexpected error processing {device_name}: {e}"
+                            )
                 else:
                     logger.warning("No devices available for data collection")
 
@@ -489,11 +527,12 @@ class TemperatureDaemon:
                 elif not self.devices:
                     # Don't count device initialization failures as harshly
                     # since they're usually due to rate limiting and recoverable
-                    logger.warning("No devices available - will retry initialization next cycle")
+                    logger.warning(
+                        "No devices available - will retry initialization next cycle"
+                    )
                 else:
                     consecutive_failures += 1
-                    logger.warning(
-                        f"Complete cycle failure #{consecutive_failures}")
+                    logger.warning(f"Complete cycle failure #{consecutive_failures}")
 
                     if consecutive_failures >= max_consecutive_failures:
                         logger.critical(

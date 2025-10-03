@@ -270,7 +270,7 @@ class TemperatureDaemonDataCollectionTests(TemperatureDaemonTestCase):
         device.status = status_side_effect
 
         # Mock time.sleep to avoid actual delays in tests
-        with patch('time.sleep'):
+        with patch("time.sleep"):
             # Should retry and succeed for rate limit errors
             temperature = self.daemon.get_temperature("living_room_thermometer")
             self.assertEqual(temperature, 22.5)

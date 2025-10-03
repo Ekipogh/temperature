@@ -21,19 +21,19 @@ def get_daemon_status():
         "running": False,
         "status": "unknown",
         "last_update": None,
-        "error": "Status file not found"
+        "error": "Status file not found",
     }
 
     try:
         if not status_file.exists():
             return default_status
 
-        with open(status_file, 'r') as f:
+        with open(status_file, "r") as f:
             status_data = json.load(f)
 
         # Check if the status is recent (within last 5 minutes)
-        if status_data.get('last_update'):
-            last_update = datetime.fromisoformat(status_data['last_update'])
+        if status_data.get("last_update"):
+            last_update = datetime.fromisoformat(status_data["last_update"])
             now = datetime.now()
 
             # Handle timezone-aware/naive datetime comparison
@@ -44,17 +44,21 @@ def get_daemon_status():
 
             time_diff = (now - last_update).total_seconds()
 
-            daemon_update_interval = status_data.get('update_interval', 300)  # Default to 5 minutes if not set
+            daemon_update_interval = status_data.get(
+                "update_interval", 300
+            )  # Default to 5 minutes if not set
 
             # Consider daemon stale if no update in <daemon_update_interval> minutes
             if time_diff > daemon_update_interval:
-                status_data['running'] = False
-                status_data['status'] = 'stale'
-                status_data['error'] = f'No update for {int(time_diff)} seconds'
+                status_data["running"] = False
+                status_data["status"] = "stale"
+                status_data["error"] = f"No update for {int(time_diff)} seconds"
             else:
-                status_data['status'] = 'active' if status_data.get('running', False) else 'stopped'
+                status_data["status"] = (
+                    "active" if status_data.get("running", False) else "stopped"
+                )
         else:
-            status_data['status'] = 'unknown'
+            status_data["status"] = "unknown"
 
         return status_data
 
@@ -62,13 +66,13 @@ def get_daemon_status():
         return {
             "running": False,
             "status": "error",
-            "error": f"Invalid status file format: {e}"
+            "error": f"Invalid status file format: {e}",
         }
     except Exception as e:
         return {
             "running": False,
             "status": "error",
-            "error": f"Error reading status: {e}"
+            "error": f"Error reading status: {e}",
         }
 
 
@@ -244,10 +248,12 @@ def system_status(request):
 
     # Get recent temperature data count
     recent_cutoff = timezone.now() - timedelta(hours=1)
-    recent_readings_count = Temperature.objects.filter(timestamp__gte=recent_cutoff).count()
+    recent_readings_count = Temperature.objects.filter(
+        timestamp__gte=recent_cutoff
+    ).count()
 
     # Get last reading timestamp
-    last_reading = Temperature.objects.order_by('-timestamp').first()
+    last_reading = Temperature.objects.order_by("-timestamp").first()
     last_reading_time = last_reading.timestamp.isoformat() if last_reading else None
 
     # Get total readings count
@@ -259,12 +265,17 @@ def system_status(request):
             "total_readings": total_readings,
             "recent_readings_count": recent_readings_count,
             "last_reading_time": last_reading_time,
-            "database_size": Temperature.objects.count()
+            "database_size": Temperature.objects.count(),
         },
         "system": {
             "timestamp": timezone.now().isoformat(),
-            "status": "healthy" if daemon_status_data.get('running', False) and recent_readings_count > 0 else "warning"
-        }
+            "status": (
+                "healthy"
+                if daemon_status_data.get("running", False)
+                and recent_readings_count > 0
+                else "warning"
+            ),
+        },
     }
 
     return JsonResponse(system_status_data, safe=False)
