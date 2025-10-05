@@ -19,6 +19,8 @@ services:
       - DJANGO_SETTINGS_MODULE=temperature.settings
       - TEMPERATURE_INTERVAL=600  # 10 minutes
       - RATE_LIMIT_SLEEP_TIME=300  # 5 minutes
+      - DATABASE_PATH=/app/data/db.sqlite3
+      - ENVIRONMENT=preprod
     networks:
       - temperature_network
     depends_on:
@@ -32,23 +34,24 @@ services:
 
   # Main Django Application (example)
   django-app:
-    # build:
-    #   context: ..
-    #   dockerfile: ci/django.dockerfile  # You would create this separately
+    build:
+      context: ..
+      dockerfile: ci/django.dockerfile
     image: temperate_dashboard_preprod:latest
     container_name: django_app_preprod
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      # Expose pre-prod Django app on port 7070
+      - "7070:8000"
     volumes:
       # Same shared database volume
       - temperature_data:/app/data
       - ../.env:/app/.env:ro
     environment:
       - DJANGO_SETTINGS_MODULE=temperature.settings
+      - DATABASE_PATH=/app/data/db.sqlite3
     networks:
       - temperature_network
-    command: ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 
 volumes:
   # Shared volume for database file

@@ -30,9 +30,67 @@ django.setup()
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.FileHandler("temperature_daemon.log"), logging.StreamHandler()],
+    handlers=[logging.FileHandler(
+        "temperature_daemon.log"), logging.StreamHandler()],
 )
 logger = logging.getLogger(__name__)
+
+
+class SwitchBotService:
+    """Service for interacting with SwitchBot devices."""
+
+    def __init__(self):
+        self._bot = None
+
+    def connect(self, mac_address: str):
+        """Connect to the SwitchBot device."""
+        token = os.getenv("SWITCHBOT_TOKEN")
+        secret = os.getenv("SWITCHBOT_SECRET")
+        if not token or not secret:
+            raise ValueError(
+                "SWITCHBOT_TOKEN and SWITCHBOT_SECRET must be set in environment variables")
+        if not self._bot:
+            self._bot = SwitchBot(token=token, secret=secret)
+        device = self._bot.device(id=mac_address)
+        return device
+
+    def get_temperature(self, mac_address: str) -> Optional[float]:
+        """Get temperature reading from the device."""
+        try:
+            device = self.connect(mac_address)
+            status = device.status()
+            temp_value = status.get("temperature")
+            if temp_value is None:
+                return None
+            temperature = float(temp_value)
+            return temperature
+        except Exception as e:
+            logger.error(f"Error getting temperature from {mac_address}: {e}")
+            return None
+
+    def get_humidity(self, mac_address: str) -> Optional[float]:
+        """Get humidity reading from the device."""
+        try:
+            device = self.connect(mac_address)
+            status = device.status()
+            humidity_value = status.get("humidity")
+            if humidity_value is None:
+                return None
+            humidity = float(humidity_value)
+            return humidity
+        except Exception as e:
+            logger.error(f"Error getting humidity from {mac_address}: {e}")
+            return None
+
+
+class PreProdSwitchBotService(SwitchBotService):
+    def get_temperature(self, mac_address: str) -> float | None:
+        # return random temperature for pre-prod testing
+        return round(random.uniform(18.0, 25.0), 2)
+
+    def get_humidity(self, mac_address: str) -> float | None:
+        # return random humidity for pre-prod testing
+        return round(random.uniform(30.0, 50.0), 2)
 
 
 class TemperatureDaemon:
@@ -41,7 +99,8 @@ class TemperatureDaemon:
     def __init__(self):
         self.running = True
         # Increased default interval to 10 minutes (600 seconds) to be API-friendly
-        self.interval = int(os.getenv("TEMPERATURE_INTERVAL", "600"))  # seconds
+        self.interval = int(
+            os.getenv("TEMPERATURE_INTERVAL", "600"))  # seconds
 
         # Increased rate limit sleep to 5 minutes to avoid hitting API limits
         self.rate_limit_sleep_time = int(
@@ -84,30 +143,19 @@ class TemperatureDaemon:
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
 
-        # Initialize SwitchBot connection
-        self._init_switchbot()
+        is_preprod = os.getenv(
+            "ENVIRONMENT", "production").lower() == "preprod"
+        # Initialize SwitchBot service
+        if is_preprod:
+            self.switchbot_service = PreProdSwitchBotService()
+        else:
+            self.switchbot_service = SwitchBotService()
 
         # Initialize devices (now all required attributes are available)
         self._init_devices()
 
-        logger.info(f"TemperatureDaemon initialized with {len(self.devices)} devices")
-
-    def _init_switchbot(self):
-        """Initialize SwitchBot connection with proper error handling."""
-        token = os.getenv("SWITCHBOT_TOKEN")
-        secret = os.getenv("SWITCHBOT_SECRET")
-
-        if not token or not secret:
-            raise ValueError(
-                "SWITCHBOT_TOKEN and SWITCHBOT_SECRET must be set in environment variables"
-            )
-
-        try:
-            self._bot = SwitchBot(token=token, secret=secret)
-            logger.info("SwitchBot connection initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize SwitchBot: {e}")
-            raise
+        logger.info(
+            f"TemperatureDaemon initialized with {len(self.devices)} devices")
 
     def _init_devices(self):
         """Initialize all temperature devices with retry logic for rate limiting."""
@@ -128,9 +176,10 @@ class TemperatureDaemon:
 
             while attempt < max_attempts and self.running:
                 try:
-                    device = self._bot.device(id=mac_address)
-                    self.devices[device_name] = device
-                    logger.info(f"Initialized device: {device_name} ({mac_address})")
+                    # Store device MAC address for SwitchBotService to use
+                    self.devices[device_name] = mac_address
+                    logger.info(
+                        f"Initialized device: {device_name} ({mac_address})")
                     successful_devices += 1
                     break  # Success, move to next device
 
@@ -159,7 +208,8 @@ class TemperatureDaemon:
                             f"Failed to initialize device {device_name} (attempt {attempt}/{max_attempts}): {e}"
                         )
                         if attempt < max_attempts:
-                            time.sleep(5)  # Short delay for non-rate-limit errors
+                            # Short delay for non-rate-limit errors
+                            time.sleep(5)
                         break  # Don't retry non-rate-limit errors
 
         # Reset rate limit state if we had any successful device initializations
@@ -168,7 +218,8 @@ class TemperatureDaemon:
 
         # Handle the case where no devices were initialized
         if not self.devices:
-            logger.error("No devices were successfully initialized after retries")
+            logger.error(
+                "No devices were successfully initialized after retries")
             logger.info(
                 "Daemon will continue running and retry device initialization in the main loop"
             )
@@ -270,8 +321,8 @@ class TemperatureDaemon:
 
     def get_temperature(self, device_name) -> Optional[float]:
         """Get temperature reading from a device with error handling and validation."""
-        device = self.devices.get(device_name)
-        if not device:
+        mac_address = self.devices.get(device_name)
+        if not mac_address:
             logger.error(f"Device {device_name} not found")
             return None
 
@@ -279,11 +330,12 @@ class TemperatureDaemon:
 
         for attempt in range(max_attempts):
             try:
-                status = device.status()
-                temperature = float(status.get("temperature"))
+                temperature = self.switchbot_service.get_temperature(
+                    mac_address)
 
                 if temperature is None:
-                    logger.warning(f"No temperature reading from {device_name}")
+                    logger.warning(
+                        f"No temperature reading from {device_name}")
                     return None
 
                 # Validate temperature range (reasonable for indoor/outdoor temps)
@@ -321,29 +373,29 @@ class TemperatureDaemon:
                 # Handle authentication errors
                 elif "401" in str(e) or "authentication" in error_str:
                     logger.warning(
-                        f"Authentication error for {device_name}, reinitializing SwitchBot connection"
+                        f"Authentication error for {device_name}, reinitializing SwitchBot service"
                     )
                     try:
-                        self._init_switchbot()
-                        self._init_devices()
+                        self.switchbot_service = SwitchBotService()
                         # Don't retry here, let the next iteration handle it
                         return None
                     except Exception as init_e:
                         logger.error(
-                            f"Failed to reinitialize after auth error: {init_e}"
+                            f"Failed to reinitialize SwitchBot service after auth error: {init_e}"
                         )
                         return None
                 else:
                     # Other errors - log and return None
-                    logger.error(f"Error reading temperature from {device_name}: {e}")
+                    logger.error(
+                        f"Error reading temperature from {device_name}: {e}")
                     return None
 
         return None
 
     def get_humidity(self, device_name) -> Optional[float]:
         """Get humidity reading from a device with error handling and validation."""
-        device = self.devices.get(device_name)
-        if not device:
+        mac_address = self.devices.get(device_name)
+        if not mac_address:
             logger.error(f"Device {device_name} not found")
             return None
 
@@ -351,8 +403,7 @@ class TemperatureDaemon:
 
         for attempt in range(max_attempts):
             try:
-                status = device.status()
-                humidity = float(status.get("humidity"))
+                humidity = self.switchbot_service.get_humidity(mac_address)
 
                 if humidity is None:
                     logger.warning(f"No humidity reading from {device_name}")
@@ -393,21 +444,21 @@ class TemperatureDaemon:
                 # Handle authentication errors
                 elif "401" in str(e) or "authentication" in error_str:
                     logger.warning(
-                        f"Authentication error for {device_name}, reinitializing SwitchBot connection"
+                        f"Authentication error for {device_name}, reinitializing SwitchBot service"
                     )
                     try:
-                        self._init_switchbot()
-                        self._init_devices()
+                        self.switchbot_service = SwitchBotService()
                         # Don't retry here, let the next iteration handle it
                         return None
                     except Exception as init_e:
                         logger.error(
-                            f"Failed to reinitialize after auth error: {init_e}"
+                            f"Failed to reinitialize SwitchBot service after auth error: {init_e}"
                         )
                         return None
                 else:
                     # Other errors - log and return None
-                    logger.error(f"Error reading humidity from {device_name}: {e}")
+                    logger.error(
+                        f"Error reading humidity from {device_name}: {e}")
                     return None
 
         return None
@@ -470,7 +521,8 @@ class TemperatureDaemon:
 
     def run(self):
         """Main daemon loop with comprehensive error handling."""
-        logger.info(f"Starting temperature daemon with {self.interval}s interval")
+        logger.info(
+            f"Starting temperature daemon with {self.interval}s interval")
 
         consecutive_failures = 0
         max_consecutive_failures = 5
@@ -478,7 +530,8 @@ class TemperatureDaemon:
         try:
             while self.running:
                 self.iteration_counter += 1
-                logger.info(f"--- Daemon iteration {self.iteration_counter} ---")
+                logger.info(
+                    f"--- Daemon iteration {self.iteration_counter} ---")
 
                 # Check if we have devices, if not try to initialize them
                 if not self.devices:
@@ -492,7 +545,8 @@ class TemperatureDaemon:
                                 "Device re-initialization failed, will retry next cycle"
                             )
                     except Exception as e:
-                        logger.error(f"Error during device re-initialization: {e}")
+                        logger.error(
+                            f"Error during device re-initialization: {e}")
 
                 cycle_success = False
 
@@ -532,7 +586,8 @@ class TemperatureDaemon:
                     )
                 else:
                     consecutive_failures += 1
-                    logger.warning(f"Complete cycle failure #{consecutive_failures}")
+                    logger.warning(
+                        f"Complete cycle failure #{consecutive_failures}")
 
                     if consecutive_failures >= max_consecutive_failures:
                         logger.critical(

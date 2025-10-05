@@ -1,6 +1,45 @@
 # Temperature Monitor
 
-A Django-based temperature monitoring system that collects data from SwitchBot devices and displays it in a beautiful web dashboard.
+A Django-based temperature monitoring system that   Open http://localhost:8000 in your browser
+
+## Architecture
+
+### System Components
+
+**SwitchBotService Class**
+- Encapsulates all SwitchBot API interactions
+- Handles device connection and data retrieval
+- Provides consistent error handling and logging
+- Used by both daemon and web application
+
+**Temperature Daemon (Enhanced)**
+- Service-oriented architecture using SwitchBotService
+- Exponential backoff for rate limiting
+- Comprehensive error handling and recovery
+- Health monitoring and status reporting
+- Configurable collection intervals
+
+**Django Web Application**
+- Real-time dashboard with Vue.js frontend
+- Optimized API endpoints with caching
+- Separate manual vs automatic refresh
+- Database storage in configurable location
+
+**Database Architecture**
+- SQLite database stored in `data/` directory
+- Shared between daemon and web application
+- Automatic backup and maintenance utilities
+- Configurable location via environment variables
+
+### Data Flow
+
+1. **Background Collection**: Daemon collects data every 10 minutes
+2. **Database Storage**: Data stored in shared SQLite database
+3. **Web Dashboard**: Displays real-time data and historical charts
+4. **Manual Refresh**: Users can trigger immediate device polling
+5. **Auto Refresh**: Dashboard updates from database every 5 minutes
+
+## Configurationllects data from SwitchBot devices and displays it in a beautiful web dashboard.
 
 [![CI/CD](../../actions/workflows/ci-cd.yml/badge.svg)](../../actions/workflows/ci-cd.yml)
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](#testing)
@@ -11,12 +50,15 @@ A Django-based temperature monitoring system that collects data from SwitchBot d
 
 - 🌡️ **Real-time Temperature Monitoring** - Collect temperature and humidity data from multiple SwitchBot devices
 - 📊 **Interactive Dashboard** - Beautiful web interface with real-time charts and current readings
-- 🔄 **Automatic Data Collection** - Background daemon continuously collects data every 5 minutes
+- 🔄 **Smart Data Collection** - Background daemon with rate limiting and error recovery
 - 📈 **Historical Data** - View temperature trends over time (6H, 24H, 7D views)
-- 🗄️ **Database Storage** - Efficient SQLite storage with proper indexing
+- 🗄️ **Database Storage** - Efficient SQLite storage with configurable location
 - 🛡️ **Data Validation** - Comprehensive input validation and error handling
 - 📱 **Responsive Design** - Works on desktop and mobile devices
 - 🔧 **Maintenance Tools** - Built-in backup and database maintenance utilities
+- 🐳 **Docker Support** - Complete containerized deployment with Docker Compose
+- ⚡ **Optimized Refresh** - Separate manual vs automatic refresh strategies
+- 🏗️ **Service Architecture** - Clean separation of concerns with SwitchBotService class
 
 ## Screenshots
 
@@ -74,6 +116,66 @@ A Django-based temperature monitoring system that collects data from SwitchBot d
 8. **Access the dashboard**
    - Open http://localhost:8000 in your browser
 
+## Docker Deployment
+
+### Pre-production Environment
+
+For a complete containerized deployment with automatic restarts and shared data volumes:
+
+1. **Prepare environment file**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your SwitchBot credentials
+   ```
+
+2. **Deploy with Docker Compose**
+   ```bash
+   cd ci
+   docker-compose -f docker-compose.preprod.yml up -d
+   ```
+
+3. **Access the dashboard**
+   - Pre-prod environment: http://localhost:7070
+
+📖 **For detailed Docker deployment instructions, see [Docker Deployment Guide](docs/DOCKER_DEPLOYMENT.md)**
+
+### Docker Architecture
+
+- **Django Application Container**: Web dashboard and API endpoints
+- **Temperature Daemon Container**: Background data collection service
+- **Shared Data Volume**: Database and logs persistence
+- **Health Checks**: Automatic container monitoring and restart
+- **Network Isolation**: Containers communicate via internal Docker network
+
+### Docker Features
+
+- 🔄 **Automatic Restarts**: Containers restart on failure
+- 📊 **Health Monitoring**: Built-in health checks for both services
+- 💾 **Data Persistence**: Database and logs survive container restarts
+- 🔒 **Security**: Non-root user execution in containers
+- 🎛️ **Environment Configuration**: Configurable via environment variables
+- 📈 **Scalability**: Separate containers for web and data collection
+
+### Container Environment Variables
+
+```env
+# Required for both containers
+SWITCHBOT_TOKEN=your_token_here
+SWITCHBOT_SECRET=your_secret_here
+
+# Daemon-specific settings
+TEMPERATURE_INTERVAL=600  # Data collection interval (seconds)
+RATE_LIMIT_SLEEP_TIME=300 # Rate limit backoff (seconds)
+DATABASE_PATH=/app/data/db.sqlite3  # Database location in container
+ENVIRONMENT=preprod  # Environment identifier
+
+# Device MAC addresses
+LIVING_ROOM_MAC=D40E84863006
+BEDROOM_MAC=D40E84861814
+OFFICE_MAC=D628EA1C498F
+OUTDOOR_MAC=D40E84064570
+```
+
 ## Configuration
 
 ### Environment Variables
@@ -91,8 +193,15 @@ BEDROOM_MAC=D40E84861814
 OFFICE_MAC=D628EA1C498F
 OUTDOOR_MAC=D40E84064570
 
-# Data collection interval in seconds (default: 300 = 5 minutes)
-TEMPERATURE_INTERVAL=300
+# Data collection settings
+TEMPERATURE_INTERVAL=600  # Collection interval in seconds (default: 10 minutes)
+RATE_LIMIT_SLEEP_TIME=300 # Rate limit backoff in seconds (default: 5 minutes)
+
+# Database configuration
+DATABASE_PATH=data/db.sqlite3  # Database file location (default: data/db.sqlite3)
+
+# Docker-specific (optional)
+ENVIRONMENT=development  # Environment identifier
 ```
 
 ### Getting SwitchBot Credentials
@@ -115,9 +224,27 @@ TEMPERATURE_INTERVAL=300
 
 ### API Endpoints
 
-- `GET /api/temperature/` - Current temperature readings
+- `GET /api/temperature/` - Current temperature readings (database only)
 - `GET /api/temperature/?manual=true` - Refresh from devices and return current readings
 - `GET /api/historical/?hours=24` - Historical data for specified hours
+
+### Dashboard Refresh Strategy
+
+The dashboard now uses an optimized two-tier refresh strategy:
+
+**Automatic Refresh (Every 5 minutes)**
+- Fetches data from database only
+- No SwitchBot API calls
+- Fast and efficient
+- Runs in background without loading spinner
+
+**Manual Refresh (User-triggered)**
+- Fetches fresh data from SwitchBot devices
+- Updates database with latest readings
+- Shows loading spinner during fetch
+- Resets automatic refresh timer
+
+This approach reduces API calls while maintaining real-time updates through the background daemon.
 
 ### Maintenance
 
@@ -148,7 +275,7 @@ python manage.py test --settings=temperature.test_settings
 # Model tests
 python manage.py test homepage.tests.TemperatureModelTests --settings=temperature.test_settings
 
-# View tests  
+# View tests
 python manage.py test homepage.tests.TemperatureViewTests --settings=temperature.test_settings
 
 # Daemon tests
@@ -253,6 +380,77 @@ The daemon includes comprehensive error handling and logging:
 - Django logs: Console output
 - Backup logs: Included in backup utility output
 
+## Docker Management
+
+### Container Operations
+
+**View running containers**
+```bash
+docker-compose -f ci/docker-compose.preprod.yml ps
+```
+
+**View logs**
+```bash
+# All services
+docker-compose -f ci/docker-compose.preprod.yml logs -f
+
+# Specific service
+docker-compose -f ci/docker-compose.preprod.yml logs -f temperature-daemon
+docker-compose -f ci/docker-compose.preprod.yml logs -f django-app
+```
+
+**Restart services**
+```bash
+# Restart all
+docker-compose -f ci/docker-compose.preprod.yml restart
+
+# Restart specific service
+docker-compose -f ci/docker-compose.preprod.yml restart temperature-daemon
+```
+
+**Stop and remove**
+```bash
+docker-compose -f ci/docker-compose.preprod.yml down
+
+# Remove volumes too (⚠️ deletes data)
+docker-compose -f ci/docker-compose.preprod.yml down -v
+```
+
+**Rebuild containers**
+```bash
+docker-compose -f ci/docker-compose.preprod.yml build
+docker-compose -f ci/docker-compose.preprod.yml up -d
+```
+
+### Health Monitoring
+
+**Check container health**
+```bash
+docker inspect temperature_daemon_preprod | grep -A 5 "Health"
+```
+
+**Monitor daemon status**
+```bash
+docker exec temperature_daemon_preprod cat /app/daemon_status.json
+```
+
+### Data Management
+
+**Access database**
+```bash
+docker exec -it django_app_preprod python manage.py shell
+```
+
+**Backup database**
+```bash
+docker exec django_app_preprod python backup_utility.py create
+```
+
+**View data directory**
+```bash
+docker exec django_app_preprod ls -la /app/data/
+```
+
 ## Contributing
 
 1. Fork the repository
@@ -291,9 +489,22 @@ The daemon includes comprehensive error handling and logging:
 - Verify SQLite file exists and is writable
 
 **Dashboard Not Loading**
-- Check Django server is running on port 8000
+- Check Django server is running on port 8000 (or 7070 for Docker)
 - Verify `ALLOWED_HOSTS` setting
 - Check browser console for JavaScript errors
+
+**Docker Issues**
+- Check container status: `docker-compose -f ci/docker-compose.preprod.yml ps`
+- View container logs: `docker-compose -f ci/docker-compose.preprod.yml logs -f`
+- Ensure `.env` file exists and is properly configured
+- Check port conflicts (7070 for pre-prod, 8000 for local)
+- Verify Docker volumes are properly mounted
+
+**Service Architecture Issues**
+- Check SwitchBotService initialization in logs
+- Verify environment variables are loaded correctly
+- Check daemon status file: `cat daemon_status.json`
+- Monitor rate limiting in daemon logs
 
 ## License
 
@@ -314,6 +525,63 @@ If you encounter any issues or have questions:
 2. Search existing [issues](../../issues)
 3. Create a new issue with detailed information
 4. Include logs and configuration (remove sensitive data)
+
+## Recent Changes
+
+### v2.0.0 - Service Architecture & Docker Deployment
+
+📋 **For complete change history, see [CHANGELOG.md](CHANGELOG.md)**
+
+**Major Architecture Improvements:**
+- ✅ **SwitchBotService Class**: New service layer for cleaner API interaction
+- ✅ **Enhanced Daemon**: Improved error handling, rate limiting, and recovery
+- ✅ **Docker Support**: Complete containerized deployment with Docker Compose
+- ✅ **Database Relocation**: Database moved to `data/` directory for better organization
+- ✅ **Optimized Refresh**: Separate manual vs automatic refresh strategies
+
+**Technical Details:**
+
+*SwitchBotService Implementation*
+- Encapsulated all SwitchBot API calls in dedicated service class
+- Improved error handling and logging consistency
+- Better separation of concerns in daemon architecture
+- Enhanced testability and maintainability
+
+*Daemon Enhancements*
+- Replaced direct SwitchBot integration with service layer
+- Improved authentication error recovery
+- Better device initialization with retry logic
+- Enhanced rate limiting with exponential backoff
+
+*Docker Deployment*
+- Pre-production Docker Compose configuration
+- Separate containers for web app and daemon
+- Shared data volumes for database persistence
+- Health checks and automatic restarts
+- Environment-based configuration
+
+*Database Architecture*
+- Database moved from root to `data/` directory
+- Configurable database path via `DATABASE_PATH` environment variable
+- Automatic directory creation and migration
+- Better Docker volume management
+
+*Frontend Optimizations*
+- Smart refresh strategy reduces API calls
+- Manual refresh fetches from devices
+- Auto refresh uses database only
+- Improved user experience with loading states
+
+**Breaking Changes:**
+- Database location changed from root to `data/` directory
+- Daemon now uses SwitchBotService instead of direct API calls
+- Docker deployment requires environment variable updates
+
+**Migration Guide:**
+1. Update `.env` file with new environment variables
+2. Database will be automatically moved to `data/` directory
+3. Update any custom scripts to use new service architecture
+4. Use Docker Compose for production deployments
 
 ---
 
