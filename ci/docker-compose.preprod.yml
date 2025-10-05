@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  # Temperature Daemon Service
+  temperature-daemon:
+    build:
+      context: ..
+      dockerfile: ci/preprod_daemon.dockerfile
+    container_name: temperature_daemon_preprod
+    restart: unless-stopped
+    volumes:
+      # Shared database volume with the main Django app
+      - temperature_data:/app/data
+      # Optional: Mount logs directory for easier access
+      - temperature_logs:/app/logs
+      # Optional: Mount .env file for environment variables
+      - ../.env:/app/.env:ro
+    environment:
+      - DJANGO_SETTINGS_MODULE=temperature.settings
+      - TEMPERATURE_INTERVAL=600  # 10 minutes
+      - RATE_LIMIT_SLEEP_TIME=300  # 5 minutes
+    networks:
+      - temperature_network
+    depends_on:
+      - django-app  # Optional: ensure Django app starts first
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "temperature_daemon.py"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Main Django Application (example)
+  django-app:
+    # build:
+    #   context: ..
+    #   dockerfile: ci/django.dockerfile  # You would create this separately
+    image: temperate_dashboard_preprod:latest
+    container_name: django_app_preprod
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      # Same shared database volume
+      - temperature_data:/app/data
+      - ../.env:/app/.env:ro
+    environment:
+      - DJANGO_SETTINGS_MODULE=temperature.settings
+    networks:
+      - temperature_network
+    command: ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+
+volumes:
+  # Shared volume for database file
+  temperature_data:
+    driver: local
+  # Volume for daemon logs
+  temperature_logs:
+    driver: local
+
+networks:
+  temperature_network:
+    driver: bridge
