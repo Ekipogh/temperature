@@ -337,11 +337,37 @@ jobs:
       shell: pwsh
       run: |
         Write-Output "🩺 Performing health check..."
-        $healthCheck = docker-compose -f ci/docker-compose.production.yml exec -T temperature-daemon curl -f http://localhost:7000/health || true
-        if ($healthCheck -match "healthy") {
-          Write-Output "✅ Health check passed"
-        } else {
-          Write-Output "⚠️ Health check failed"
-        }
+        # Check container status
+        docker-compose -f ci/docker-compose.production.yml ps
         Write-Output "✅ Production deployment complete on Windows host"
         Write-Output "🌐 Access your application at: http://localhost:7000"
+        # Check if Django app is responding
+        try {
+          $response = Invoke-WebRequest -Uri "http://localhost:7000/" -TimeoutSec 10 -UseBasicParsing
+          if ($response.StatusCode -eq 200) {
+            Write-Output "✅ Django app is responding on port 7000"
+          }
+        } catch {
+          Write-Output "⚠️ Django app not ready yet: $($_.Exception.Message)"
+        }
+        # Check daemon container status
+        try {
+          $daemonStatus = docker-compose -f ci/docker-compose.production.yml exec -T temperature-daemon ps aux
+          if ($daemonStatus -match "temperature_daemon") {
+            Write-Output "✅ Temperature daemon is running"
+          } else {
+            Write-Output "⚠️ Temperature daemon status unclear"
+          }
+        } catch {
+          Write-Output "⚠️ Could not check daemon status: $($_.Exception.Message)"
+        }
+        # Check daemon status file if accessible
+        try {
+          $statusFile = docker-compose -f ci/docker-compose.production.yml exec -T temperature-daemon cat /app/data/daemon_status.json 2>$null
+          if ($statusFile) {
+            Write-Output "✅ Daemon status file accessible"
+          }
+        } catch {
+          Write-Output "ℹ️ Daemon status file check skipped"
+        }
+        Write-Output "✅ Health check completed"
