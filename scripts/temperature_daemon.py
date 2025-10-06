@@ -11,7 +11,6 @@ from typing import Dict, Optional
 
 # Load environment variables from .env file
 from dotenv import load_dotenv
-from switchbot import SwitchBot
 
 import django
 from django.utils import timezone
@@ -26,6 +25,9 @@ sys.path.append(str(project_dir))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "temperature.settings")
 django.setup()
 
+# Import shared services
+from services.switchbot_service import get_switchbot_service, get_device_configs
+
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
@@ -33,64 +35,6 @@ logging.basicConfig(
     handlers=[logging.FileHandler("temperature_daemon.log"), logging.StreamHandler()],
 )
 logger = logging.getLogger(__name__)
-
-
-class SwitchBotService:
-    """Service for interacting with SwitchBot devices."""
-
-    def __init__(self):
-        self._bot = None
-
-    def connect(self, mac_address: str):
-        """Connect to the SwitchBot device."""
-        token = os.getenv("SWITCHBOT_TOKEN")
-        secret = os.getenv("SWITCHBOT_SECRET")
-        if not token or not secret:
-            raise ValueError(
-                "SWITCHBOT_TOKEN and SWITCHBOT_SECRET must be set in environment variables"
-            )
-        if not self._bot:
-            self._bot = SwitchBot(token=token, secret=secret)
-        device = self._bot.device(id=mac_address)
-        return device
-
-    def get_temperature(self, mac_address: str) -> Optional[float]:
-        """Get temperature reading from the device."""
-        try:
-            device = self.connect(mac_address)
-            status = device.status()
-            temp_value = status.get("temperature")
-            if temp_value is None:
-                return None
-            temperature = float(temp_value)
-            return temperature
-        except Exception as e:
-            logger.error(f"Error getting temperature from {mac_address}: {e}")
-            return None
-
-    def get_humidity(self, mac_address: str) -> Optional[float]:
-        """Get humidity reading from the device."""
-        try:
-            device = self.connect(mac_address)
-            status = device.status()
-            humidity_value = status.get("humidity")
-            if humidity_value is None:
-                return None
-            humidity = float(humidity_value)
-            return humidity
-        except Exception as e:
-            logger.error(f"Error getting humidity from {mac_address}: {e}")
-            return None
-
-
-class PreProdSwitchBotService(SwitchBotService):
-    def get_temperature(self, mac_address: str) -> float | None:
-        # return random temperature for pre-prod testing
-        return round(random.uniform(18.0, 25.0), 2)
-
-    def get_humidity(self, mac_address: str) -> float | None:
-        # return random humidity for pre-prod testing
-        return round(random.uniform(30.0, 50.0), 2)
 
 
 class TemperatureDaemon:
@@ -147,13 +91,8 @@ class TemperatureDaemon:
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
 
-        is_preprod = os.getenv("ENVIRONMENT", "production").lower() == "preprod"
-        # Initialize SwitchBot service
-        if is_preprod:
-            logger.info("🛠️ Running in pre-production mode")
-            self.switchbot_service = PreProdSwitchBotService()
-        else:
-            self.switchbot_service = SwitchBotService()
+        # Initialize SwitchBot service using shared factory
+        self.switchbot_service = get_switchbot_service()
 
         # Initialize devices (now all required attributes are available)
         self._init_devices()
@@ -162,16 +101,8 @@ class TemperatureDaemon:
 
     def _init_devices(self):
         """Initialize device configuration by storing MAC addresses."""
-        # Device configuration - can be moved to environment variables if needed
-        device_configs = {
-            "living_room_thermometer": os.getenv("LIVING_ROOM_MAC", "D40E84863006"),
-            "bedroom_thermometer": os.getenv("BEDROOM_MAC", "D40E84861814"),
-            "office_thermometer": os.getenv("OFFICE_MAC", "D628EA1C498F"),
-            "outdoor_thermometer": os.getenv("OUTDOOR_MAC", "D40E84064570"),
-        }
-
-        # Simply store the MAC addresses - the SwitchBotService handles all device communication
-        self.devices = device_configs.copy()
+        # Use shared device configuration
+        self.devices = get_device_configs()
 
         logger.info(
             f"Configured {len(self.devices)} devices: {list(self.devices.keys())}"
@@ -326,7 +257,7 @@ class TemperatureDaemon:
                         f"Authentication error for {device_name}, reinitializing SwitchBot service"
                     )
                     try:
-                        self.switchbot_service = SwitchBotService()
+                        self.switchbot_service = get_switchbot_service()
                         # Don't retry here, let the next iteration handle it
                         return None
                     except Exception as init_e:
@@ -396,7 +327,7 @@ class TemperatureDaemon:
                         f"Authentication error for {device_name}, reinitializing SwitchBot service"
                     )
                     try:
-                        self.switchbot_service = SwitchBotService()
+                        self.switchbot_service = get_switchbot_service()
                         # Don't retry here, let the next iteration handle it
                         return None
                     except Exception as init_e:
