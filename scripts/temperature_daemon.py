@@ -147,6 +147,7 @@ class TemperatureDaemon:
             "ENVIRONMENT", "production").lower() == "preprod"
         # Initialize SwitchBot service
         if is_preprod:
+            logger.info("🛠️ Running in pre-production mode")
             self.switchbot_service = PreProdSwitchBotService()
         else:
             self.switchbot_service = SwitchBotService()
@@ -158,7 +159,7 @@ class TemperatureDaemon:
             f"TemperatureDaemon initialized with {len(self.devices)} devices")
 
     def _init_devices(self):
-        """Initialize all temperature devices with retry logic for rate limiting."""
+        """Initialize device configuration by storing MAC addresses."""
         # Device configuration - can be moved to environment variables if needed
         device_configs = {
             "living_room_thermometer": os.getenv("LIVING_ROOM_MAC", "D40E84863006"),
@@ -167,63 +168,10 @@ class TemperatureDaemon:
             "outdoor_thermometer": os.getenv("OUTDOOR_MAC", "D40E84064570"),
         }
 
-        self.devices = {}
-        successful_devices = 0
+        # Simply store the MAC addresses - the SwitchBotService handles all device communication
+        self.devices = device_configs.copy()
 
-        for device_name, mac_address in device_configs.items():
-            max_attempts = 5  # Maximum attempts for device initialization
-            attempt = 0
-
-            while attempt < max_attempts and self.running:
-                try:
-                    # Store device MAC address for SwitchBotService to use
-                    self.devices[device_name] = mac_address
-                    logger.info(
-                        f"Initialized device: {device_name} ({mac_address})")
-                    successful_devices += 1
-                    break  # Success, move to next device
-
-                except Exception as e:
-                    attempt += 1
-                    error_str = str(e).lower()
-
-                    # Check for rate limiting (HTTP 429)
-                    if "429" in str(e) or "rate limit" in error_str:
-                        if attempt < max_attempts:
-                            logger.warning(
-                                f"Rate limit during device initialization for {device_name} (attempt {attempt}/{max_attempts})"
-                            )
-                            self._handle_rate_limit_error(
-                                f"device initialization for {device_name}"
-                            )
-                            continue  # Retry after backoff
-                        else:
-                            logger.error(
-                                f"Failed to initialize device {device_name} after {max_attempts} attempts due to rate limiting"
-                            )
-                            break
-                    else:
-                        # Non-rate-limit error
-                        logger.error(
-                            f"Failed to initialize device {device_name} (attempt {attempt}/{max_attempts}): {e}"
-                        )
-                        if attempt < max_attempts:
-                            # Short delay for non-rate-limit errors
-                            time.sleep(5)
-                        break  # Don't retry non-rate-limit errors
-
-        # Reset rate limit state if we had any successful device initializations
-        if successful_devices > 0:
-            self._reset_rate_limit_state()
-
-        # Handle the case where no devices were initialized
-        if not self.devices:
-            logger.error(
-                "No devices were successfully initialized after retries")
-            logger.info(
-                "Daemon will continue running and retry device initialization in the main loop"
-            )
-            # Don't crash - let the daemon continue and try again later
+        logger.info(f"Configured {len(self.devices)} devices: {list(self.devices.keys())}")
 
     def _update_status(
         self, consecutive_failures: int = 0, successful_reading: bool = False

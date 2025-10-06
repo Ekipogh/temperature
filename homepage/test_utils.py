@@ -3,10 +3,54 @@ Test utilities and fixtures for the temperature monitoring system.
 """
 
 from datetime import timedelta
+from typing import Optional
+from unittest.mock import MagicMock
 
 from django.utils import timezone
 
 from homepage.models import Temperature
+
+
+class MockSwitchBotService:
+    """Mock SwitchBot service for testing."""
+
+    def __init__(self):
+        self.temperature_values = {}
+        self.humidity_values = {}
+        self.should_fail = {}
+        self.failure_messages = {}
+
+    def get_temperature(self, mac_address: str) -> Optional[float]:
+        """Get mock temperature reading."""
+        if self.should_fail.get(mac_address, False):
+            return None
+        return self.temperature_values.get(mac_address)
+
+    def get_humidity(self, mac_address: str) -> Optional[float]:
+        """Get mock humidity reading."""
+        if self.should_fail.get(mac_address, False):
+            return None
+        return self.humidity_values.get(mac_address)
+
+    def set_device_data(self, mac_address: str, temperature: Optional[float], humidity: Optional[float]):
+        """Set mock data for a device."""
+        self.temperature_values[mac_address] = temperature
+        self.humidity_values[mac_address] = humidity
+
+    def set_device_failure(self, mac_address: str, should_fail: bool = True, message: str = "Mock failure"):
+        """Configure a device to fail."""
+        self.should_fail[mac_address] = should_fail
+        self.failure_messages[mac_address] = message
+
+
+class MockTestSwitchBotService(MockSwitchBotService):
+    """Test service that returns None by default (for testing failure scenarios)."""
+
+    def get_temperature(self, mac_address: str) -> Optional[float]:
+        return None
+
+    def get_humidity(self, mac_address: str) -> Optional[float]:
+        return None
 
 
 class TemperatureTestMixin:
