@@ -1,0 +1,88 @@
+{% load static %}
+<html>
+  <head>
+    <title>Daemon Info</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+    <!-- Bootstrap CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet" />
+  </head>
+  <body>
+    <div class="container mt-5">
+      <nav class="navbar navbar-expand-lg navbar-light bg-light justify-content-between mb-4">
+        <a class="navbar-brand" href="#">Daemon Info</a>
+        <form class="form-inline my-2 my-lg-0">
+          <a class="btn btn-outline-primary" href="/">Home</a>
+        </form>
+      </nav>
+      <table class="table table-bordered" id="daemon-info-table">
+        <thead class="thead-dark">
+          <tr>
+            <th scope="col">Attribute</th>
+            <th scope="col">Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Daemon Status</td>
+            <td>[[ daemon_status ]]</td>
+          </tr>
+          <tr>
+            <td>Last Successful Reading</td>
+            <td>2[[ last_successful_reading ]]</td>
+          </tr>
+          <tr>
+            <td>Iteration Count</td>
+            <td>[[ iteration_counter ]]</td>
+          </tr>
+          <tr>
+            <td>Error Count</td>
+            <td>[[ error_count ]]</td>
+          </tr>
+          <tr>
+            <td>Last Update</td>
+            <td>[[ last_update ]]</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script>
+      const { createApp, ref, onMounted } = Vue
+      
+      createApp({
+        delimiters: ['[[', ']]'],
+        setup() {
+          const daemon_status = ref('Unknown')
+          const last_successful_reading = ref('Unknown')
+          const iteration_counter = ref('Unknown')
+          const error_count = ref('Unknown')
+          const last_update = ref('Unknown')
+          // Fetch daemon status from the server
+      
+          const fetchDaemonStatus = () => {
+            fetch('/api/daemon/status/')
+              .then((response) => response.json())
+              .then((data) => {
+                daemon_status.value = data.status
+                last_successful_reading.value = data.last_successful_reading
+                iteration_counter.value = data.iteration_counter
+                error_count.value = data.error_count
+                last_update.value = data.last_update
+              })
+          }
+          return {
+            daemon_status,
+            last_successful_reading,
+            iteration_counter,
+            error_count,
+            last_update,
+            fetchDaemonStatus
+          }
+        },
+        mounted() {
+          this.fetchDaemonStatus()
+        }
+      }).mount('#daemon-info-table')
+    </script>
+  </body>
+</html>
