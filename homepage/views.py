@@ -15,7 +15,7 @@ from homepage.models import Temperature
 
 def get_daemon_status():
     """Get the current status of the temperature daemon."""
-    status_file = Path(__file__).parent.parent / "daemon_status.json"
+    status_file = Path(os.getenv("DAEMON_STATUS_FILE", Path(__file__).parent.parent / "daemon_status.json"))
 
     default_status = {
         "running": False,
