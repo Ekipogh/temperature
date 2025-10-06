@@ -181,24 +181,27 @@ jobs:
 
         Write-Output "✅ Environment variables set successfully"
 
-    - name: Stop existing containers (Windows)
+    - name: Stop existing preprod containers (Windows)
       shell: pwsh
       run: |
         try {
+          # Only stop preprod containers, not production
           docker-compose -f ci/docker-compose.preprod.yml down
-          Write-Output "✅ Stopped existing containers"
+          Write-Output "✅ Stopped existing preprod containers"
         } catch {
-          Write-Output "ℹ️ No existing containers to stop"
+          Write-Output "ℹ️ No existing preprod containers to stop"
         }
 
-    - name: Clean up old images (Windows)
+    - name: Clean up preprod images (Windows)
       shell: pwsh
       run: |
         try {
-          docker system prune -f
-          Write-Output "✅ Cleaned up old Docker images"
+          # Remove only preprod-specific images to avoid affecting production
+          docker image rm temperate_dashboard_preprod:latest -f 2>$null
+          docker image rm temperature-daemon:preprod -f 2>$null
+          Write-Output "✅ Cleaned up preprod Docker images"
         } catch {
-          Write-Output "ℹ️ Docker cleanup completed with warnings"
+          Write-Output "ℹ️ Preprod image cleanup completed"
         }
 
     - name: Deploy to staging (Windows)
@@ -262,7 +265,8 @@ jobs:
         }
 
         Write-Output "✅ Staging deployment complete on Windows host"
-        Write-Output "🌐 Access your application at: http://localhost:7070"
+        Write-Output "🌐 Access your preprod application at: http://localhost:7070"
+        Write-Output "🔒 Production application remains unaffected at: http://localhost:7000"
 
   deploy-production:
     runs-on: [self-hosted, windows]
@@ -309,18 +313,28 @@ jobs:
         echo "DJANGO_ALLOWED_HOSTS=${{ secrets.DJANGO_ALLOWED_HOSTS }}" >> $env:GITHUB_ENV
 
         Write-Output "✅ Environment variables set successfully"
-    - name: Stop existing containers (Windows)
+    - name: Stop existing production containers (Windows)
       shell: pwsh
       run: |
-        Write-Output "🛑 Stopping existing Docker containers..."
-        docker-compose -f ci/docker-compose.production.yml down
-        Write-Output "✅ Existing containers stopped"
-    - name: Clean up old images (Windows)
+        Write-Output "🛑 Stopping existing production Docker containers..."
+        try {
+          docker-compose -f ci/docker-compose.production.yml down
+          Write-Output "✅ Existing production containers stopped"
+        } catch {
+          Write-Output "ℹ️ No existing production containers to stop"
+        }
+    - name: Clean up production images (Windows)
       shell: pwsh
       run: |
-        Write-Output "🧹 Cleaning up old Docker images..."
-        docker image prune -f
-        Write-Output "✅ Old Docker images cleaned up"
+        Write-Output "🧹 Cleaning up production Docker images..."
+        try {
+          # Remove only production-specific images to avoid affecting preprod
+          docker image rm temperate_dashboard_production:latest -f 2>$null
+          docker image rm temperature-daemon:production -f 2>$null
+          Write-Output "✅ Production Docker images cleaned up"
+        } catch {
+          Write-Output "ℹ️ Production image cleanup completed"
+        }
     - name: Deploy to production (Windows)
       shell: pwsh
       run: |
