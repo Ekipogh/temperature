@@ -32,6 +32,23 @@ class MockSwitchBotService:
             return None
         return self.humidity_values.get(mac_address)
 
+    def get_device_status(self, mac_address: str) -> Optional[dict]:
+        """Get mock device status including temperature and humidity."""
+        if self.should_fail.get(mac_address, False):
+            return None
+
+        temperature = self.temperature_values.get(mac_address)
+        humidity = self.humidity_values.get(mac_address)
+
+        if temperature is None and humidity is None:
+            return None
+
+        return {
+            "temperature": temperature,
+            "humidity": humidity,
+            "battery": 85,  # Mock battery level
+        }
+
     def set_device_data(
         self, mac_address: str, temperature: Optional[float], humidity: Optional[float]
     ):
@@ -54,6 +71,9 @@ class MockTestSwitchBotService(MockSwitchBotService):
         return None
 
     def get_humidity(self, mac_address: str) -> Optional[float]:
+        return None
+
+    def get_device_status(self, mac_address: str) -> Optional[dict]:
         return None
 
 

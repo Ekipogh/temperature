@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 from django.test import TestCase
 
 from homepage.models import Temperature
-from homepage.test_utils import MockSwitchBot, MockSwitchBotDevice
+from homepage.test_utils import MockSwitchBot, MockSwitchBotDevice, MockSwitchBotService
 
 
 class TemperatureDaemonTestCase(TestCase):
@@ -56,13 +56,13 @@ class TemperatureDaemonInitializationTests(TemperatureDaemonTestCase):
         # Import here to avoid Django configuration issues
         with patch("scripts.temperature_daemon.django.setup"):
             with patch(
-                "scripts.temperature_daemon.SwitchBotService"
-            ) as mock_service_class:
+                "scripts.temperature_daemon.get_switchbot_service"
+            ) as mock_service_factory:
                 from scripts.temperature_daemon import TemperatureDaemon
 
                 # Mock service
-                mock_service = MagicMock()
-                mock_service_class.return_value = mock_service
+                mock_service = MockSwitchBotService()
+                mock_service_factory.return_value = mock_service
 
                 # Ensure production environment
                 with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
@@ -72,21 +72,21 @@ class TemperatureDaemonInitializationTests(TemperatureDaemonTestCase):
                 self.assertTrue(daemon.running)
                 self.assertEqual(daemon.interval, 60)
                 self.assertEqual(len(daemon.devices), 4)
-                # Verify production service was used
-                mock_service_class.assert_called_once()
+                # Verify service factory was called
+                mock_service_factory.assert_called_once()
 
     def test_daemon_initialization_success_preprod(self):
         """Test successful daemon initialization in preprod environment."""
         # Import here to avoid Django configuration issues
         with patch("scripts.temperature_daemon.django.setup"):
             with patch(
-                "scripts.temperature_daemon.PreProdSwitchBotService"
-            ) as mock_service_class:
+                "scripts.temperature_daemon.get_switchbot_service"
+            ) as mock_service_factory:
                 from scripts.temperature_daemon import TemperatureDaemon
 
                 # Mock service
-                mock_service = MagicMock()
-                mock_service_class.return_value = mock_service
+                mock_service = MockSwitchBotService()
+                mock_service_factory.return_value = mock_service
 
                 # Ensure preprod environment
                 with patch.dict(os.environ, {"ENVIRONMENT": "preprod"}):
@@ -96,26 +96,26 @@ class TemperatureDaemonInitializationTests(TemperatureDaemonTestCase):
                 self.assertTrue(daemon.running)
                 self.assertEqual(daemon.interval, 60)
                 self.assertEqual(len(daemon.devices), 4)
-                # Verify preprod service was used
-                mock_service_class.assert_called_once()
+                # Verify service factory was called
+                mock_service_factory.assert_called_once()
 
     def test_daemon_initialization_missing_credentials(self):
         """Test daemon initialization with missing credentials."""
         # Import here to avoid Django configuration issues
         with patch("scripts.temperature_daemon.django.setup"):
-            from scripts.temperature_daemon import TemperatureDaemon
+            with patch(
+                "scripts.temperature_daemon.get_switchbot_service"
+            ) as mock_service_factory:
+                from scripts.temperature_daemon import TemperatureDaemon
 
-            # Remove credentials from environment
-            with patch.dict(os.environ, {}, clear=True):
-                with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
-                    with patch(
-                        "scripts.temperature_daemon.SwitchBotService"
-                    ) as mock_service_class:
-                        # Mock service to raise ValueError for missing credentials
-                        mock_service_class.side_effect = ValueError(
-                            "SWITCHBOT_TOKEN and SWITCHBOT_SECRET must be set in environment variables"
-                        )
+                # Mock service factory to raise ValueError for missing credentials
+                mock_service_factory.side_effect = ValueError(
+                    "SWITCHBOT_TOKEN and SWITCHBOT_SECRET must be set in environment variables"
+                )
 
+                # Remove credentials from environment
+                with patch.dict(os.environ, {}, clear=True):
+                    with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
                         with self.assertRaises(ValueError) as context:
                             TemperatureDaemon()
 
@@ -129,13 +129,13 @@ class TemperatureDaemonInitializationTests(TemperatureDaemonTestCase):
         # Import here to avoid Django configuration issues
         with patch("scripts.temperature_daemon.django.setup"):
             with patch(
-                "scripts.temperature_daemon.SwitchBotService"
-            ) as mock_service_class:
+                "scripts.temperature_daemon.get_switchbot_service"
+            ) as mock_service_factory:
                 from scripts.temperature_daemon import TemperatureDaemon
 
                 # Mock service
-                mock_service = MagicMock()
-                mock_service_class.return_value = mock_service
+                mock_service = MockSwitchBotService()
+                mock_service_factory.return_value = mock_service
 
                 # Remove all MAC environment variables to test defaults
                 with patch.dict(os.environ, {}, clear=True):
@@ -163,13 +163,13 @@ class TemperatureDaemonInitializationTests(TemperatureDaemonTestCase):
         # Import here to avoid Django configuration issues
         with patch("scripts.temperature_daemon.django.setup"):
             with patch(
-                "scripts.temperature_daemon.SwitchBotService"
-            ) as mock_service_class:
+                "scripts.temperature_daemon.get_switchbot_service"
+            ) as mock_service_factory:
                 from scripts.temperature_daemon import TemperatureDaemon
 
                 # Mock service
-                mock_service = MagicMock()
-                mock_service_class.return_value = mock_service
+                mock_service = MockSwitchBotService()
+                mock_service_factory.return_value = mock_service
 
                 # Set custom MAC addresses
                 custom_env = {
@@ -199,13 +199,13 @@ class TemperatureDaemonInitializationTests(TemperatureDaemonTestCase):
         # Import here to avoid Django configuration issues
         with patch("scripts.temperature_daemon.django.setup"):
             with patch(
-                "scripts.temperature_daemon.SwitchBotService"
-            ) as mock_service_class:
+                "scripts.temperature_daemon.get_switchbot_service"
+            ) as mock_service_factory:
                 from scripts.temperature_daemon import TemperatureDaemon
 
                 # Mock service
-                mock_service = MagicMock()
-                mock_service_class.return_value = mock_service
+                mock_service = MockSwitchBotService()
+                mock_service_factory.return_value = mock_service
 
                 daemon = TemperatureDaemon()
 
@@ -248,19 +248,13 @@ class TemperatureDaemonDataCollectionTests(TemperatureDaemonTestCase):
         self.mock_service.set_device_data("MAC003", 23.5, 62.0)  # Office
         self.mock_service.set_device_data("MAC004", 15.5, 85.0)  # Outdoor
 
-        # Patch the service classes to return our mock
+        # Patch the service factory to return our mock
         self.switchbot_service_patcher = patch(
-            "scripts.temperature_daemon.SwitchBotService"
-        )
-        self.preprod_service_patcher = patch(
-            "scripts.temperature_daemon.PreProdSwitchBotService"
+            "scripts.temperature_daemon.get_switchbot_service"
         )
 
-        mock_switchbot_service = self.switchbot_service_patcher.start()
-        mock_preprod_service = self.preprod_service_patcher.start()
-
-        mock_switchbot_service.return_value = self.mock_service
-        mock_preprod_service.return_value = self.mock_service
+        mock_service_factory = self.switchbot_service_patcher.start()
+        mock_service_factory.return_value = self.mock_service
 
         # Create daemon with test environment
         with patch.dict(os.environ, {"ENVIRONMENT": "test"}):
@@ -271,7 +265,6 @@ class TemperatureDaemonDataCollectionTests(TemperatureDaemonTestCase):
     def tearDown(self):
         """Clean up patches."""
         self.switchbot_service_patcher.stop()
-        self.preprod_service_patcher.stop()
         self.django_setup_patcher.stop()
         super().tearDown()
 
@@ -390,23 +383,23 @@ class TemperatureDaemonMainLoopTests(TemperatureDaemonTestCase):
             # Test production environment
             with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
                 with patch(
-                    "scripts.temperature_daemon.SwitchBotService"
-                ) as mock_service:
+                    "scripts.temperature_daemon.get_switchbot_service"
+                ) as mock_factory:
                     _ = TemperatureDaemon()
-                    mock_service.assert_called_once()
+                    mock_factory.assert_called_once()
 
             # Test preprod environment
             with patch.dict(os.environ, {"ENVIRONMENT": "preprod"}):
                 with patch(
-                    "scripts.temperature_daemon.PreProdSwitchBotService"
-                ) as mock_preprod_service:
+                    "scripts.temperature_daemon.get_switchbot_service"
+                ) as mock_factory:
                     _ = TemperatureDaemon()
-                    mock_preprod_service.assert_called_once()
+                    mock_factory.assert_called_once()
 
     def test_preprod_service_returns_random_values(self):
         """Test that PreProdSwitchBotService returns random values."""
         with patch("scripts.temperature_daemon.django.setup"):
-            from scripts.temperature_daemon import PreProdSwitchBotService
+            from services.switchbot_service import PreProdSwitchBotService
 
             service = PreProdSwitchBotService()
 
@@ -428,3 +421,11 @@ class TemperatureDaemonMainLoopTests(TemperatureDaemonTestCase):
                 if humidity is not None:
                     self.assertGreaterEqual(humidity, 30.0)
                     self.assertLessEqual(humidity, 50.0)
+
+            # Test device status method
+            status = service.get_device_status("test_mac")
+            self.assertIsNotNone(status)
+            if status is not None:
+                self.assertIn("temperature", status)
+                self.assertIn("humidity", status)
+                self.assertIn("battery", status)

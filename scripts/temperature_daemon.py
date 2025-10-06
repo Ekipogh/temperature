@@ -7,7 +7,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Optional
 
 # Load environment variables from .env file
 from dotenv import load_dotenv
@@ -26,7 +26,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "temperature.settings")
 django.setup()
 
 # Import shared services
-from services.switchbot_service import get_switchbot_service, get_device_configs
+from services.switchbot_service import get_device_configs, get_switchbot_service
 
 # Setup logging
 logging.basicConfig(

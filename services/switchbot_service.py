@@ -90,10 +90,10 @@ def get_switchbot_service() -> SwitchBotService:
     is_preprod = os.getenv("ENVIRONMENT", "production").lower() == "preprod"
 
     if is_preprod:
-        logger.info("🛠️ Using pre-production SwitchBot service")
+        logger.info("Using pre-production SwitchBot service")
         return PreProdSwitchBotService()
     else:
-        logger.info("🔌 Using production SwitchBot service")
+        logger.info("Using production SwitchBot service")
         return SwitchBotService()
 
 

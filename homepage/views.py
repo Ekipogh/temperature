@@ -9,7 +9,7 @@ from django.shortcuts import render
 from django.utils import timezone
 
 from homepage.models import Temperature
-from services.switchbot_service import get_switchbot_service, get_location_mac_mapping
+from services.switchbot_service import get_location_mac_mapping, get_switchbot_service
 
 
 def get_daemon_status():
