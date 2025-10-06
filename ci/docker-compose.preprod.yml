@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  # Temperature Daemon Service
+  temperature-daemon:
+    build:
+      context: ..
+      dockerfile: ci/preprod_daemon.dockerfile
+    container_name: temperature_daemon_preprod
+    restart: unless-stopped
+    volumes:
+      # Shared database volume with the main Django app
+      - temperature_data:/app/data
+      # Optional: Mount logs directory for easier access
+      - temperature_logs:/app/logs
+    environment:
+      - DJANGO_SETTINGS_MODULE=temperature.settings
+      - TEMPERATURE_INTERVAL=600  # 10 minutes
+      - RATE_LIMIT_SLEEP_TIME=300  # 5 minutes
+      - DATABASE_PATH=/app/data/db.sqlite3
+      - ENVIRONMENT=preprod
+      - DAEMON_STATUS_FILE=/app/data/daemon_status.json
+      # SwitchBot credentials from host .env or secrets
+      - SWITCHBOT_TOKEN=${SWITCHBOT_TOKEN}
+      - SWITCHBOT_SECRET=${SWITCHBOT_SECRET}
+      - LIVING_ROOM_MAC=${LIVING_ROOM_MAC}
+      - BEDROOM_MAC=${BEDROOM_MAC}
+      - OFFICE_MAC=${OFFICE_MAC}
+      - OUTDOOR_MAC=${OUTDOOR_MAC}
+    networks:
+      - temperature_network
+    depends_on:
+      - django-app  # Optional: ensure Django app starts first
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "temperature_daemon.py"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Main Django Application (example)
+  django-app:
+    build:
+      context: ..
+      dockerfile: ci/django.dockerfile
+    image: temperate_dashboard_preprod:latest
+    container_name: django_app_preprod
+    restart: unless-stopped
+    ports:
+      # Expose pre-prod Django app on port 7070
+      - "7070:8000"
+    volumes:
+      # Same shared database volume
+      - temperature_data:/app/data
+    environment:
+      - DJANGO_SETTINGS_MODULE=temperature.settings
+      - DATABASE_PATH=/app/data/db.sqlite3
+      - ENVIRONMENT=preprod
+      - DAEMON_STATUS_FILE=/app/data/daemon_status.json
+      # SwitchBot credentials from host .env or secrets
+      - SWITCHBOT_TOKEN=${SWITCHBOT_TOKEN}
+      - SWITCHBOT_SECRET=${SWITCHBOT_SECRET}
+      - LIVING_ROOM_MAC=${LIVING_ROOM_MAC}
+      - BEDROOM_MAC=${BEDROOM_MAC}
+      - OFFICE_MAC=${OFFICE_MAC}
+      - OUTDOOR_MAC=${OUTDOOR_MAC}
+    networks:
+      - temperature_network
+
+volumes:
+  # Shared volume for database file
+  temperature_data:
+    driver: local
+  # Volume for daemon logs
+  temperature_logs:
+    driver: local
+
+networks:
+  temperature_network:
+    driver: bridge

@@ -3,19 +3,22 @@ import os
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from switchbot import SwitchBot
-
 from django.db import models
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
 
 from homepage.models import Temperature
+from services.switchbot_service import get_location_mac_mapping, get_switchbot_service
 
 
 def get_daemon_status():
     """Get the current status of the temperature daemon."""
-    status_file = Path(__file__).parent.parent / "daemon_status.json"
+    status_file = Path(
+        os.getenv(
+            "DAEMON_STATUS_FILE", Path(__file__).parent.parent / "daemon_status.json"
+        )
+    )
 
     default_status = {
         "running": False,
@@ -77,35 +80,24 @@ def get_daemon_status():
 
 
 def fetch_new_data():
-    switchbot_token = os.getenv("SWITCHBOT_TOKEN", "")
-    switchbot_secret = os.getenv("SWITCHBOT_SECRET", "")
-    switchbot = SwitchBot(switchbot_token, switchbot_secret)
-    living_room_mac = os.getenv("LIVING_ROOM_MAC", "D40E84863006")
-    bedroom_mac = os.getenv("BEDROOM_MAC", "D40E84861814")
-    office_mac = os.getenv("OFFICE_MAC", "D628EA1C498F")
-    outdoor_mac = os.getenv("OUTDOOR_MAC", "D40E84064570")
-
-    devices = {
-        "Living Room": living_room_mac,
-        "Bedroom": bedroom_mac,
-        "Office": office_mac,
-        "Outdoor": outdoor_mac,
-    }
+    """Fetch new temperature data from SwitchBot devices."""
+    switchbot_service = get_switchbot_service()
+    devices = get_location_mac_mapping()
 
     for location, mac in devices.items():
         try:
-            device = switchbot.device(id=mac)
-            if device is None:
-                print(f"Device with MAC {mac} not found.")
-                continue
-
-            device_status = device.status()
-            if device_status is None or "temperature" not in device_status:
+            # Get device status which includes both temperature and humidity
+            device_status = switchbot_service.get_device_status(mac)
+            if device_status is None:
                 print(f"Could not retrieve data from device {mac}.")
                 continue
 
             temperature = device_status.get("temperature")
             humidity = device_status.get("humidity")
+
+            if temperature is None:
+                print(f"No temperature data from device {mac}.")
+                continue
 
             # Save to database
             temp_record = Temperature(

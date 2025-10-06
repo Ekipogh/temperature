@@ -1,6 +1,9 @@
 # Core Django and web framework
 Django>=5.2.0
 
+# WSGI server for production
+gunicorn>=20.1.0
+
 # SwitchBot integration
 python-switchbot
 

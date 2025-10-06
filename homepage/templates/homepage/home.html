@@ -550,7 +550,7 @@
                 };
 
                 onMounted(() => {
-                    refreshData();
+                    autoRefreshData();
                     // Only run the counter timer - auto-refresh is handled by updateRefreshCounter
                     setInterval(updateRefreshCounter, 1000);
                 });
