@@ -45,5 +45,6 @@ ENV DJANGO_SETTINGS_MODULE=temperature.settings
 # Expose port (if needed for health checks)
 EXPOSE 8000
 RUN chmod +x /app/startup.sh
+RUN sed -i 's/\r$//' /app/startup.sh
 # Set the entrypoint to the startup script
 ENTRYPOINT ["bash", "/app/startup.sh", "8000"]
