@@ -36,7 +36,7 @@ Edit `.env` and fill in your SwitchBot credentials and device MAC addresses.
 
 ### 3. Start the Services
 ```cmd
-docker-compose -f ci/django-compose.production.yml up -d
+docker-compose -f ci/docker-compose.production.yml up -d
 ```
 
 ### 4. Access the Application
@@ -60,31 +60,31 @@ docker-compose -f ci/django-compose.production.yml up -d
 ### View Logs
 ```cmd
 # View Django app logs
-docker-compose -f ci/django-compose.production.yml logs django-app
+docker-compose -f ci/docker-compose.production.yml logs django-app
 
 # View daemon logs
-docker-compose -f ci/django-compose.production.yml logs temperature-daemon
+docker-compose -f ci/docker-compose.production.yml logs temperature-daemon
 
 # Follow logs in real-time
-docker-compose -f ci/django-compose.production.yml logs -f
+docker-compose -f ci/docker-compose.production.yml logs -f
 ```
 
 ### Stop Services
 ```cmd
-docker-compose -f ci/django-compose.production.yml down
+docker-compose -f ci/docker-compose.production.yml down
 ```
 
 ### Restart Services
 ```cmd
-docker-compose -f ci/django-compose.production.yml restart
+docker-compose -f ci/docker-compose.production.yml restart
 ```
 
 ### Update Services
 ```cmd
 # Pull latest changes and rebuild
-docker-compose -f ci/django-compose.production.yml down
-docker-compose -f ci/django-compose.production.yml build --no-cache
-docker-compose -f ci/django-compose.production.yml up -d
+docker-compose -f ci/docker-compose.production.yml down
+docker-compose -f ci/docker-compose.production.yml build --no-cache
+docker-compose -f ci/docker-compose.production.yml up -d
 ```
 
 ## Database Access
@@ -103,25 +103,25 @@ Since the SQLite database is stored on the host machine, you can:
 3. **Django management commands**:
    ```cmd
    # Run migrations
-   docker-compose -f ci/django-compose.production.yml exec django-app python manage.py migrate
+   docker-compose -f ci/docker-compose.production.yml exec django-app python manage.py migrate
 
    # Create superuser
-   docker-compose -f ci/django-compose.production.yml exec django-app python manage.py createsuperuser
+   docker-compose -f ci/docker-compose.production.yml exec django-app python manage.py createsuperuser
 
    # Access Django shell
-   docker-compose -f ci/django-compose.production.yml exec django-app python manage.py shell
+   docker-compose -f ci/docker-compose.production.yml exec django-app python manage.py shell
    ```
 
 ## Troubleshooting
 
 ### Check Container Status
 ```cmd
-docker-compose -f ci/django-compose.production.yml ps
+docker-compose -f ci/docker-compose.production.yml ps
 ```
 
 ### Check Container Health
 ```cmd
-docker-compose -f ci/django-compose.production.yml exec temperature-daemon pgrep -f temperature_daemon.py
+docker-compose -f ci/docker-compose.production.yml exec temperature-daemon pgrep -f temperature_daemon.py
 ```
 
 ### Verify Database Permissions
@@ -134,8 +134,8 @@ dir C:\temperature\logs
 
 ### View Environment Variables
 ```cmd
-docker-compose -f ci/django-compose.production.yml exec django-app env | findstr DJANGO
-docker-compose -f ci/django-compose.production.yml exec temperature-daemon env | findstr SWITCHBOT
+docker-compose -f ci/docker-compose.production.yml exec django-app env | findstr DJANGO
+docker-compose -f ci/docker-compose.production.yml exec temperature-daemon env | findstr SWITCHBOT
 ```
 
 ## Security Notes

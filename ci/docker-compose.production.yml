@@ -23,7 +23,7 @@
 #    OUTDOOR_MAC=your_mac_address
 #
 # 3. Start the services:
-#    docker-compose -f ci/django-compose.production.yml up -d
+#    docker-compose -f ci/docker-compose.production.yml up -d
 #
 # Database file will be accessible at: C:\temperature\data\db.sqlite3
 # Logs will be accessible at: C:\temperature\logs\

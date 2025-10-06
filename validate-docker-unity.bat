@@ -17,7 +17,7 @@ echo.
 
 REM Check production configuration
 echo [PRODUCTION] Dockerfiles used:
-findstr /n "dockerfile:" ci\django-compose.production.yml | findstr /v "#"
+findstr /n "dockerfile:" ci\docker-compose.production.yml | findstr /v "#"
 
 echo.
 
@@ -57,7 +57,7 @@ if %ERRORLEVEL% == 0 (
     echo [ERROR] Preprod configuration has issues
 )
 
-docker-compose -f ci/django-compose.production.yml config > nul 2>&1
+docker-compose -f ci/docker-compose.production.yml config > nul 2>&1
 if %ERRORLEVEL% == 0 (
     echo [OK] Production configuration is valid
 ) else (

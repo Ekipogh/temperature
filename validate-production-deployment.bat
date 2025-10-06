@@ -66,7 +66,7 @@ if exist "temperature\production_settings.py" (
 echo.
 echo [3/8] Checking Docker Configuration...
 echo ------------------------------------
-docker-compose -f ci/django-compose.production.yml config > nul 2>&1
+docker-compose -f ci/docker-compose.production.yml config > nul 2>&1
 if %ERRORLEVEL% == 0 (
     echo [OK] Docker Compose configuration is valid
 ) else (
@@ -122,7 +122,7 @@ if %ERRORLEVEL% == 0 (
 echo.
 echo [7/8] Checking Production Containers (if running)...
 echo -------------------------------------------------
-docker-compose -f ci/django-compose.production.yml ps --filter "status=running" | findstr "django_app_production" > nul
+docker-compose -f ci/docker-compose.production.yml ps --filter "status=running" | findstr "django_app_production" > nul
 if %ERRORLEVEL% == 0 (
     echo [OK] Django production container is running
 
@@ -137,7 +137,7 @@ if %ERRORLEVEL% == 0 (
     echo [INFO] Django production container not running
 )
 
-docker-compose -f ci/django-compose.production.yml ps --filter "status=running" | findstr "temperature_daemon_production" > nul
+docker-compose -f ci/docker-compose.production.yml ps --filter "status=running" | findstr "temperature_daemon_production" > nul
 if %ERRORLEVEL% == 0 (
     echo [OK] Temperature daemon production container is running
 ) else (
@@ -170,9 +170,9 @@ if %ERROR_COUNT% == 0 (
     echo.
     echo Next steps:
     echo 1. Review any warnings above
-    echo 2. Start services: docker-compose -f ci/django-compose.production.yml up -d
+    echo 2. Start services: docker-compose -f ci/docker-compose.production.yml up -d
     echo 3. Access web interface: http://localhost:7000
-    echo 4. Monitor logs: docker-compose -f ci/django-compose.production.yml logs -f
+    echo 4. Monitor logs: docker-compose -f ci/docker-compose.production.yml logs -f
 ) else (
     echo [FAILURE] %ERROR_COUNT% critical issues found. Please fix before deployment.
     echo.

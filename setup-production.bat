@@ -30,7 +30,7 @@ echo - C:\temperature\logs (for application logs)
 echo.
 echo Next steps:
 echo 1. Create a .env file in the project root with your SwitchBot credentials
-echo 2. Run: docker-compose -f ci/django-compose.production.yml up -d
+echo 2. Run: docker-compose -f ci/docker-compose.production.yml up -d
 echo.
 echo Your SQLite database will be accessible at: C:\temperature\data\db.sqlite3
 echo.

@@ -58,7 +58,7 @@ ci/
 ├── django.dockerfile              # ✅ Used by both environments
 ├── preprod_daemon.dockerfile      # ✅ Used by both environments
 ├── docker-compose.preprod.yml     # Preprod configuration
-└── django-compose.production.yml  # Production configuration
+└── docker-compose.production.yml  # Production configuration
 ```
 
 ## Usage Examples
@@ -79,7 +79,7 @@ mkdir C:\temperature\data
 mkdir C:\temperature\logs
 
 # Start production (uses host bind mounts)
-docker-compose -f ci/django-compose.production.yml up -d
+docker-compose -f ci/docker-compose.production.yml up -d
 
 # Access: http://localhost:7000
 # Uses real SwitchBot API
@@ -116,7 +116,7 @@ docker-compose -f ci/django-compose.production.yml up -d
 ```bash
 # Update both environments simultaneously
 docker-compose -f ci/docker-compose.preprod.yml build --no-cache
-docker-compose -f ci/django-compose.production.yml build --no-cache
+docker-compose -f ci/docker-compose.production.yml build --no-cache
 
 # Or use a script to update both
 ```
@@ -176,14 +176,14 @@ LIVING_ROOM_MAC=your_mac_address
 
 ```bash
 # Check environment variables
-docker-compose -f ci/django-compose.production.yml exec django-app env | grep ENVIRONMENT
+docker-compose -f ci/docker-compose.production.yml exec django-app env | grep ENVIRONMENT
 
 # Verify service selection
-docker-compose -f ci/django-compose.production.yml logs django-app | grep "SwitchBot service"
+docker-compose -f ci/docker-compose.production.yml logs django-app | grep "SwitchBot service"
 
 # Check container differences
 docker-compose -f ci/docker-compose.preprod.yml ps
-docker-compose -f ci/django-compose.production.yml ps
+docker-compose -f ci/docker-compose.production.yml ps
 ```
 
 This unified approach ensures consistency while maintaining the flexibility to configure each environment appropriately for its specific use case.
