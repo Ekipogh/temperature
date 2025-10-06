@@ -31,7 +31,7 @@ Write-Host "- C:\temperature\logs (for application logs)" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Yellow
 Write-Host "1. Create a .env file in the project root with your SwitchBot credentials"
-Write-Host "2. Run: docker-compose -f ci/django-compose.production.yml up -d"
+Write-Host "2. Run: docker-compose -f ci/docker-compose.production.yml up -d"
 Write-Host ""
 Write-Host "Your SQLite database will be accessible at: C:\temperature\data\db.sqlite3" -ForegroundColor Magenta
 Write-Host ""

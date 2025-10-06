@@ -51,18 +51,18 @@
   - [ ] `SWITCHBOT_SECRET=your_actual_secret`
   - [ ] All device MAC addresses
 - [ ] Ensure Docker is running
-- [ ] Test Docker Compose configuration: `docker-compose -f ci/django-compose.production.yml config`
+- [ ] Test Docker Compose configuration: `docker-compose -f ci/docker-compose.production.yml config`
 
 #### **Deployment:**
-- [ ] Build and start services: `docker-compose -f ci/django-compose.production.yml up -d`
-- [ ] Verify containers are running: `docker-compose -f ci/django-compose.production.yml ps`
-- [ ] Check logs for errors: `docker-compose -f ci/django-compose.production.yml logs`
+- [ ] Build and start services: `docker-compose -f ci/docker-compose.production.yml up -d`
+- [ ] Verify containers are running: `docker-compose -f ci/docker-compose.production.yml ps`
+- [ ] Check logs for errors: `docker-compose -f ci/docker-compose.production.yml logs`
 - [ ] Test web interface: http://localhost:7000
 - [ ] Verify database creation: Check `C:\temperature\data\db.sqlite3` exists
 - [ ] Test daemon functionality: Check logs in `C:\temperature\logs\`
 
 #### **Post-Deployment:**
-- [ ] Create Django superuser (optional): `docker-compose -f ci/django-compose.production.yml exec django-app python manage.py createsuperuser`
+- [ ] Create Django superuser (optional): `docker-compose -f ci/docker-compose.production.yml exec django-app python manage.py createsuperuser`
 - [ ] Verify SwitchBot API connectivity
 - [ ] Test temperature data collection
 - [ ] Set up monitoring/alerts (if needed)
@@ -115,10 +115,10 @@ RATE_LIMIT_SLEEP_TIME=300
 
 ```bash
 # Check container status
-docker-compose -f ci/django-compose.production.yml ps
+docker-compose -f ci/docker-compose.production.yml ps
 
 # View logs
-docker-compose -f ci/django-compose.production.yml logs -f
+docker-compose -f ci/docker-compose.production.yml logs -f
 
 # Check resource usage
 docker stats
@@ -127,12 +127,12 @@ docker stats
 sqlite3 C:\temperature\data\db.sqlite3
 
 # Restart services
-docker-compose -f ci/django-compose.production.yml restart
+docker-compose -f ci/docker-compose.production.yml restart
 
 # Update and redeploy
-docker-compose -f ci/django-compose.production.yml down
-docker-compose -f ci/django-compose.production.yml build --no-cache
-docker-compose -f ci/django-compose.production.yml up -d
+docker-compose -f ci/docker-compose.production.yml down
+docker-compose -f ci/docker-compose.production.yml build --no-cache
+docker-compose -f ci/docker-compose.production.yml up -d
 ```
 
 ## 🐛 **Troubleshooting**
@@ -161,13 +161,13 @@ docker-compose -f ci/django-compose.production.yml up -d
 4. **Database migration issues:**
    ```bash
    # Manually run migrations
-   docker-compose -f ci/django-compose.production.yml exec django-app python manage.py migrate
+   docker-compose -f ci/docker-compose.production.yml exec django-app python manage.py migrate
    ```
 
 5. **SwitchBot API errors:**
    ```bash
    # Check credentials and network connectivity
-   docker-compose -f ci/django-compose.production.yml logs temperature-daemon
+   docker-compose -f ci/docker-compose.production.yml logs temperature-daemon
    ```
 
 ## ✅ **Production Ready Status**

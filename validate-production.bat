@@ -33,18 +33,18 @@ if exist ".env" (
 
 echo.
 echo Checking Docker Compose configuration...
-docker-compose -f ci/django-compose.production.yml config > nul 2>&1
+docker-compose -f ci/docker-compose.production.yml config > nul 2>&1
 if %ERRORLEVEL% == 0 (
     echo [OK] Docker Compose configuration is valid
 ) else (
     echo [ERROR] Docker Compose configuration has issues
-    echo Please check ci/django-compose.production.yml
+    echo Please check ci/docker-compose.production.yml
     goto :end
 )
 
 echo.
 echo Checking if containers are running...
-docker-compose -f ci/django-compose.production.yml ps --filter "status=running" | findstr "django_app_production" > nul
+docker-compose -f ci/docker-compose.production.yml ps --filter "status=running" | findstr "django_app_production" > nul
 if %ERRORLEVEL% == 0 (
     echo [OK] Django app container is running
     echo Testing web interface...
@@ -56,15 +56,15 @@ if %ERRORLEVEL% == 0 (
     )
 ) else (
     echo [INFO] Django app container is not running
-    echo To start: docker-compose -f ci/django-compose.production.yml up -d
+    echo To start: docker-compose -f ci/docker-compose.production.yml up -d
 )
 
-docker-compose -f ci/django-compose.production.yml ps --filter "status=running" | findstr "temperature_daemon_production" > nul
+docker-compose -f ci/docker-compose.production.yml ps --filter "status=running" | findstr "temperature_daemon_production" > nul
 if %ERRORLEVEL% == 0 (
     echo [OK] Temperature daemon container is running
 ) else (
     echo [INFO] Temperature daemon container is not running
-    echo To start: docker-compose -f ci/django-compose.production.yml up -d
+    echo To start: docker-compose -f ci/docker-compose.production.yml up -d
 )
 
 echo.
