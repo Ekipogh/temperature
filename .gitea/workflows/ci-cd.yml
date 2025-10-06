@@ -142,7 +142,7 @@ jobs:
         mypy homepage/ scripts/ temperature/ --ignore-missing-imports || true
 
   deploy-staging:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted  # Use your host machine as runner
     needs: [test, security-scan, code-quality]
     if: |
       contains(github.head_ref, 'feature/') || contains(github.head_ref, 'bugfix/')
@@ -152,6 +152,7 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
     - name: Create .env file for staging
       run: |
         cat > .env << EOF
@@ -162,12 +163,39 @@ jobs:
         OFFICE_MAC=${{ secrets.OFFICE_MAC }}
         OUTDOOR_MAC=${{ secrets.OUTDOOR_MAC }}
         TEMPERATURE_INTERVAL=60
+        ENVIRONMENT=preprod
+        DATABASE_PATH=/app/data/db.sqlite3
         EOF
+
+    - name: Stop existing containers
+      run: |
+        docker-compose -f ci/docker-compose.preprod.yml down || true
+
+    - name: Clean up old images (optional)
+      run: |
+        docker system prune -f || true
 
     - name: Deploy to staging
       run: |
-        echo "🚀 Deploying to staging environment"
-        docker-compose -f docker-compose.preprod.yml up --build -d
+        echo "🚀 Deploying to staging environment on host machine"
+        docker-compose -f ci/docker-compose.preprod.yml up --build -d
+
+    - name: Wait for services to be ready
+      run: |
+        echo "⏳ Waiting for services to start..."
+        sleep 30
+
+    - name: Health check
+      run: |
+        echo "🔍 Checking service health..."
+        docker-compose -f ci/docker-compose.preprod.yml ps
+
+        # Check if Django app is responding
+        curl -f http://localhost:7070/ || echo "Django app not ready yet"
+
+        # Check daemon status
+        docker-compose -f ci/docker-compose.preprod.yml exec -T temperature-daemon ps aux | grep temperature_daemon || echo "Daemon status check"
+
         echo "✅ Staging deployment complete"
 
   deploy-production:
