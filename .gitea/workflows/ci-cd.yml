@@ -173,9 +173,9 @@ jobs:
       run: |
         try {
           docker-compose -f ci/docker-compose.preprod.yml down
-          Write-Output "✅ Stopped existing containers"
+          Write-Output "[OK] Stopped existing containers"
         } catch {
-          Write-Output "ℹ️ No existing containers to stop"
+          Write-Output "[INFO] No existing containers to stop"
         }
 
     - name: Clean up old images (Windows)
@@ -183,35 +183,35 @@ jobs:
       run: |
         try {
           docker system prune -f
-          Write-Output "✅ Cleaned up old Docker images"
+          Write-Output "[OK] Cleaned up old Docker images"
         } catch {
-          Write-Output "ℹ️ Docker cleanup completed with warnings"
+          Write-Output "[INFO] Docker cleanup completed with warnings"
         }
 
     - name: Deploy to staging (Windows)
       shell: powershell
       run: |
-        Write-Output "🚀 Deploying to staging environment on Windows host machine"
+        Write-Output "[DEPLOY] Deploying to staging environment on Windows host machine"
         docker-compose -f ci/docker-compose.preprod.yml up --build -d
 
         if ($LASTEXITCODE -eq 0) {
-          Write-Output "✅ Docker containers started successfully"
+          Write-Output "[OK] Docker containers started successfully"
         } else {
-          Write-Output "❌ Failed to start Docker containers"
+          Write-Output "[ERROR] Failed to start Docker containers"
           exit 1
         }
 
     - name: Wait for services to be ready (Windows)
       shell: powershell
       run: |
-        Write-Output "⏳ Waiting for services to start..."
+        Write-Output "[WAIT] Waiting for services to start..."
         Start-Sleep -Seconds 30
-        Write-Output "✅ Wait period completed"
+        Write-Output "[OK] Wait period completed"
 
     - name: Health check (Windows)
       shell: powershell
       run: |
-        Write-Output "🔍 Checking service health..."
+        Write-Output "[CHECK] Checking service health..."
 
         # Check container status
         docker-compose -f ci/docker-compose.preprod.yml ps
@@ -220,36 +220,36 @@ jobs:
         try {
           $response = Invoke-WebRequest -Uri "http://localhost:7070/" -TimeoutSec 10 -UseBasicParsing
           if ($response.StatusCode -eq 200) {
-            Write-Output "✅ Django app is responding on port 7070"
+            Write-Output "[OK] Django app is responding on port 7070"
           }
         } catch {
-          Write-Output "⚠️ Django app not ready yet: $($_.Exception.Message)"
+          Write-Output "[WARN] Django app not ready yet: $($_.Exception.Message)"
         }
 
         # Check daemon container status
         try {
           $daemonStatus = docker-compose -f ci/docker-compose.preprod.yml exec -T temperature-daemon ps aux
           if ($daemonStatus -match "temperature_daemon") {
-            Write-Output "✅ Temperature daemon is running"
+            Write-Output "[OK] Temperature daemon is running"
           } else {
-            Write-Output "⚠️ Temperature daemon status unclear"
+            Write-Output "[WARN] Temperature daemon status unclear"
           }
         } catch {
-          Write-Output "⚠️ Could not check daemon status: $($_.Exception.Message)"
+          Write-Output "[WARN] Could not check daemon status: $($_.Exception.Message)"
         }
 
         # Check daemon status file if accessible
         try {
           $statusFile = docker-compose -f ci/docker-compose.preprod.yml exec -T temperature-daemon cat /app/data/daemon_status.json 2>$null
           if ($statusFile) {
-            Write-Output "✅ Daemon status file accessible"
+            Write-Output "[OK] Daemon status file accessible"
           }
         } catch {
-          Write-Output "ℹ️ Daemon status file check skipped"
+          Write-Output "[INFO] Daemon status file check skipped"
         }
 
-        Write-Output "✅ Staging deployment complete on Windows host"
-        Write-Output "🌐 Access your application at: http://localhost:7070"
+        Write-Output "[OK] Staging deployment complete on Windows host"
+        Write-Output "[URL] Access your application at: http://localhost:7070"
 
   deploy-production:
     runs-on: ubuntu-latest
@@ -262,7 +262,7 @@ jobs:
 
     - name: Deploy to production
       run: |
-        echo "🚀 Deploying to production environment"
+        echo "[DEPLOY] Deploying to production environment"
         echo "This would typically involve:"
         echo "  - Building Docker image with production tag"
         echo "  - Pushing to container registry"
