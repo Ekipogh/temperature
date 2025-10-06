@@ -83,10 +83,12 @@ services:
       # Bind mount same host directory for database storage
       - C:\temperature\data:/app/data
     environment:
-      - DJANGO_SETTINGS_MODULE=temperature.settings
+      - DJANGO_SETTINGS_MODULE=temperature.production_settings
       - DATABASE_PATH=/app/data/db.sqlite3
       - ENVIRONMENT=production
       - DAEMON_STATUS_FILE=/app/data/daemon_status.json
+      - DJANGO_DEBUG=${DJANGO_DEBUG:-False}
+      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
       # SwitchBot credentials from host .env or secrets
       - SWITCHBOT_TOKEN=${SWITCHBOT_TOKEN}
       - SWITCHBOT_SECRET=${SWITCHBOT_SECRET}
@@ -94,9 +96,6 @@ services:
       - BEDROOM_MAC=${BEDROOM_MAC}
       - OFFICE_MAC=${OFFICE_MAC}
       - OUTDOOR_MAC=${OUTDOOR_MAC}
-      - DJANGO_DEBUG=${DJANGO_DEBUG}
-      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS}
-      - DJANGO_SETTINGS_MODULE=temperature.production_settings
     networks:
       - temperature_network
 
