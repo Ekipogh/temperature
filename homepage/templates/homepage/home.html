@@ -79,12 +79,15 @@
                                 'bg-success': daemonStatus.status === 'active',
                                 'bg-warning': daemonStatus.status === 'stale',
                                 'bg-danger': daemonStatus.status === 'stopped' || daemonStatus.status === 'error' || daemonStatus.status === 'unknown'
-                            }">
+                                }">
                                 <i class="fas fa-circle me-1" style="font-size: 0.6em;"></i>
-                                Daemon [[ daemonStatus.status || 'unknown' ]]
-                            </span>
-                            <small class="text-muted" v-if="daemonStatus.last_update" style="font-size: 0.75em;">
-                                Updated: [[ formatTime(daemonStatus.last_update) ]]
+                                <a href="/daemon/" class="text-decoration-none text-light me-3" title="View Daemon Details">
+                                    Daemon
+                                    [[ daemonStatus.status || 'unknown' ]]
+                                </a>
+                                </span>
+                                <small class="text-muted" v-if="daemonStatus.last_update" style="font-size: 0.75em;">
+                                    Updated: [[ formatTime(daemonStatus.last_update) ]]
                             </small>
                         </div>
 
