@@ -114,7 +114,12 @@ class TemperatureDaemon:
 
         # Initialize status tracking BEFORE device initialization
         self.iteration_counter = 0
-        self.status_file = Path(os.getenv("DAEMON_STATUS_FILE", Path(__file__).parent.parent / "daemon_status.json"))
+        self.status_file = Path(
+            os.getenv(
+                "DAEMON_STATUS_FILE",
+                Path(__file__).parent.parent / "daemon_status.json",
+            )
+        )
         self.last_successful_reading = None
         self.start_time = datetime.now()
 
