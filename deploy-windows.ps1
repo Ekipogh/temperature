@@ -92,12 +92,46 @@ function Invoke-Setup {
     Write-Info "To start the application, run: .\deploy-windows.ps1 -Action start"
 }
 
+# Load environment variables from .env file
+function Import-EnvFile {
+    param([string]$EnvFile = ".env")
+
+    if (-not (Test-Path $EnvFile)) {
+        Write-Warning "Environment file $EnvFile not found"
+        return $false
+    }
+
+    try {
+        Get-Content $EnvFile | ForEach-Object {
+            if ($_ -match '^\s*([^#][^=]*?)\s*=\s*(.*?)\s*$') {
+                $name = $matches[1]
+                $value = $matches[2]
+                # Remove quotes if present
+                $value = $value -replace '^["''](.*?)["'']$', '$1'
+                [Environment]::SetEnvironmentVariable($name, $value, "Process")
+                Write-Verbose "Set environment variable: $name"
+            }
+        }
+        Write-Success "Loaded environment variables from $EnvFile"
+        return $true
+    } catch {
+        Write-Error "Error loading environment file: $($_.Exception.Message)"
+        return $false
+    }
+}
+
 # Start function
 function Invoke-Start {
     Write-Info "Starting Temperature Monitor services..."
 
     if (-not (Test-DockerRunning)) {
         Write-Error "Docker Desktop is not running. Please start it first or run setup."
+        exit 1
+    }
+
+    # Load environment variables from .env file
+    if (-not (Import-EnvFile)) {
+        Write-Error "Failed to load environment variables. Please ensure .env file exists and is properly formatted."
         exit 1
     }
 
@@ -246,8 +280,8 @@ switch ($Action) {
 # SIG # Begin signature block
 # MIIFcwYJKoZIhvcNAQcCoIIFZDCCBWACAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUorCGbgVGCiCAZRbpeEyy7xaa
-# fm+gggMMMIIDCDCCAfCgAwIBAgIQMDcCxCVCmbVO/65tq7ZdHzANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUin81rhxYFG6mepYdhLSBbiTv
+# RbKgggMMMIIDCDCCAfCgAwIBAgIQMDcCxCVCmbVO/65tq7ZdHzANBgkqhkiG9w0B
 # AQsFADAcMRowGAYDVQQDDBFNeUNvZGVTaWduaW5nQ2VydDAeFw0yNTEwMDYwMjA2
 # MjdaFw0yNjEwMDYwMjI2MjdaMBwxGjAYBgNVBAMMEU15Q29kZVNpZ25pbmdDZXJ0
 # MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtVTRcqNzuNBKV3E5ee3R
@@ -267,11 +301,11 @@ switch ($Action) {
 # ZGVTaWduaW5nQ2VydAIQMDcCxCVCmbVO/65tq7ZdHzAJBgUrDgMCGgUAoHgwGAYK
 # KwYBBAGCNwIBDDEKMAigAoAAoQKAADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIB
 # BDAcBgorBgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQU
-# jkpjtkEEZJmfbWnVh2LBNtXPAM0wDQYJKoZIhvcNAQEBBQAEggEAMr0xIjjcN0Uu
-# Lib/L/bwo0VEOmueQQ92qGPxX/Npw+yzpZwhn58gvsOL61t3RTp8rqinJm3Ecou5
-# O2Oe03Ryr3NQ9ARnr9yQLLg4OY+eU+caDyclbtgL0AVUVtVbn5+ApQviYcZVGfNe
-# 3I1vhm+XP+H3IUY0xDO/jjYfZUVLR1pmlIexLVCqxeyut3FwcBCsPBYlvKRq68b8
-# aErgFw3d/FOQc2zj2YvPewC6vRWKQPbaD0RQF1W7bYuoOZWUaF4SqGyTdGnYkA7a
-# m/MUU2C39xo6AdFi5cbSMbVV6iTdMjCw+PO79UQOwELwhAhPHjJAAd1SmMA/hPLK
-# o0/zLG9AkA==
+# k4U/tSZjGXsv1Z+tk7vEgb/TXOYwDQYJKoZIhvcNAQEBBQAEggEAURjPx7dDhRtM
+# rRWm5zOAY0l6BO0MtcoDMu79ZQkzYHS2IY/jf9FNoFxgFcHooUT3M2pTDGUc5RBx
+# t4f043a073Vdkc6LhKdIY225nU1uSg0AMzKuk/ljEiLJGrmMQPd9k1LfxGfjauUA
+# sO4WY6B9Bwnxbu5MMtqkm44Ct6vGyvEGmOCpcaUpufCYFD5IgXEHQk6vPAHasxx5
+# 0wWUr3eh13nnkv+hbh8l1f225H/KpRVVLlOmQfyggEwOb/5Oe7c2KThJkaO9x2fl
+# z9SItU8lGLgbKfFqFtfZ7KYDWv07qCKjd0k9VMxjQz8jlrOtbGZcXKFxfB7E8xMb
+# yhSART3JOA==
 # SIG # End signature block

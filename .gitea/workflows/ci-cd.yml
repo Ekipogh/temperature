@@ -7,8 +7,33 @@ on:
     branches: [ main, master ]
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
+  test:    - name: Set environment variables for staging (Windows)
+      shell: pwsh
+      run: |
+        Write-Output "🔧 Setting environment variables for Docker Compose..."
+        # Set environment variables for docker-compose to use
+        $env:SWITCHBOT_TOKEN = "${{ secrets.SWITCHBOT_TOKEN }}"
+        $env:SWITCHBOT_SECRET = "${{ secrets.SWITCHBOT_SECRET }}"
+        $env:LIVING_ROOM_MAC = "${{ secrets.LIVING_ROOM_MAC }}"
+        $env:BEDROOM_MAC = "${{ secrets.BEDROOM_MAC }}"
+        $env:OFFICE_MAC = "${{ secrets.OFFICE_MAC }}"
+        $env:OUTDOOR_MAC = "${{ secrets.OUTDOOR_MAC }}"
+        $env:TEMPERATURE_INTERVAL = "60"
+        $env:ENVIRONMENT = "preprod"
+        $env:DATABASE_PATH = "/app/data/db.sqlite3"
+
+        # Export variables for subsequent steps
+        echo "SWITCHBOT_TOKEN=${{ secrets.SWITCHBOT_TOKEN }}" >> $env:GITHUB_ENV
+        echo "SWITCHBOT_SECRET=${{ secrets.SWITCHBOT_SECRET }}" >> $env:GITHUB_ENV
+        echo "LIVING_ROOM_MAC=${{ secrets.LIVING_ROOM_MAC }}" >> $env:GITHUB_ENV
+        echo "BEDROOM_MAC=${{ secrets.BEDROOM_MAC }}" >> $env:GITHUB_ENV
+        echo "OFFICE_MAC=${{ secrets.OFFICE_MAC }}" >> $env:GITHUB_ENV
+        echo "OUTDOOR_MAC=${{ secrets.OUTDOOR_MAC }}" >> $env:GITHUB_ENV
+        echo "TEMPERATURE_INTERVAL=60" >> $env:GITHUB_ENV
+        echo "ENVIRONMENT=preprod" >> $env:GITHUB_ENV
+        echo "DATABASE_PATH=/app/data/db.sqlite3" >> $env:GITHUB_ENV
+
+        Write-Output "✅ Environment variables set successfully" ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
@@ -169,13 +194,13 @@ jobs:
         "@ | Out-File -FilePath .env -Encoding utf8
 
     - name: Stop existing containers (Windows)
-      shell: powershell
+      shell: pwsh
       run: |
         try {
           docker-compose -f ci/docker-compose.preprod.yml down
-          Write-Output "[OK] Stopped existing containers"
+          Write-Output "✅ Stopped existing containers"
         } catch {
-          Write-Output "[INFO] No existing containers to stop"
+          Write-Output "ℹ️ No existing containers to stop"
         }
 
     - name: Clean up old images (Windows)

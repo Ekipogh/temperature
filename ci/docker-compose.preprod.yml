@@ -13,8 +13,6 @@ services:
       - temperature_data:/app/data
       # Optional: Mount logs directory for easier access
       - temperature_logs:/app/logs
-      # Optional: Mount .env file for environment variables
-      - ../.env:/app/.env:ro
     environment:
       - DJANGO_SETTINGS_MODULE=temperature.settings
       - TEMPERATURE_INTERVAL=600  # 10 minutes
@@ -22,6 +20,13 @@ services:
       - DATABASE_PATH=/app/data/db.sqlite3
       - ENVIRONMENT=preprod
       - DAEMON_STATUS_FILE=/app/data/daemon_status.json
+      # SwitchBot credentials from host .env or secrets
+      - SWITCHBOT_TOKEN=${SWITCHBOT_TOKEN}
+      - SWITCHBOT_SECRET=${SWITCHBOT_SECRET}
+      - LIVING_ROOM_MAC=${LIVING_ROOM_MAC}
+      - BEDROOM_MAC=${BEDROOM_MAC}
+      - OFFICE_MAC=${OFFICE_MAC}
+      - OUTDOOR_MAC=${OUTDOOR_MAC}
     networks:
       - temperature_network
     depends_on:
@@ -47,12 +52,18 @@ services:
     volumes:
       # Same shared database volume
       - temperature_data:/app/data
-      - ../.env:/app/.env:ro
     environment:
       - DJANGO_SETTINGS_MODULE=temperature.settings
       - DATABASE_PATH=/app/data/db.sqlite3
       - ENVIRONMENT=preprod
       - DAEMON_STATUS_FILE=/app/data/daemon_status.json
+      # SwitchBot credentials from host .env or secrets
+      - SWITCHBOT_TOKEN=${SWITCHBOT_TOKEN}
+      - SWITCHBOT_SECRET=${SWITCHBOT_SECRET}
+      - LIVING_ROOM_MAC=${LIVING_ROOM_MAC}
+      - BEDROOM_MAC=${BEDROOM_MAC}
+      - OFFICE_MAC=${OFFICE_MAC}
+      - OUTDOOR_MAC=${OUTDOOR_MAC}
     networks:
       - temperature_network
 
