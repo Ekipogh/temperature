@@ -287,6 +287,11 @@ jobs:
         $env:TEMPERATURE_INTERVAL = "600"
         $env:ENVIRONMENT = "production"
         $env:DATABASE_PATH = "/app/data/db.sqlite3"
+        $env:DAEMON_STATUS_FILE = "/app/data/daemon_status.json"
+        # Django production settings
+        $env:DJANGO_SETTINGS_MODULE = "temperature.production_settings"
+        $env:DJANGO_DEBUG = "False"
+        $env:DJANGO_ALLOWED_HOSTS = "${{ secrets.DJANGO_ALLOWED_HOSTS }}"
 
         # Export variables for subsequent steps
         echo "SWITCHBOT_TOKEN=${{ secrets.SWITCHBOT_TOKEN }}" >> $env:GITHUB_ENV
@@ -298,6 +303,10 @@ jobs:
         echo "TEMPERATURE_INTERVAL=600" >> $env:GITHUB_ENV
         echo "ENVIRONMENT=production" >> $env:GITHUB_ENV
         echo "DATABASE_PATH=/app/data/db.sqlite3" >> $env:GITHUB_ENV
+        echo "DAEMON_STATUS_FILE=/app/data/daemon_status.json" >> $env:GITHUB_ENV
+        echo "DJANGO_SETTINGS_MODULE=temperature.settings" >> $env:GITHUB_ENV
+        echo "DJANGO_DEBUG=False" >> $env:GITHUB_ENV
+        echo "DJANGO_ALLOWED_HOSTS=${{ secrets.DJANGO_ALLOWED_HOSTS }}" >> $env:GITHUB_ENV
 
         Write-Output "✅ Environment variables set successfully"
     - name: Stop existing containers (Windows)

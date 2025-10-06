@@ -94,6 +94,9 @@ services:
       - BEDROOM_MAC=${BEDROOM_MAC}
       - OFFICE_MAC=${OFFICE_MAC}
       - OUTDOOR_MAC=${OUTDOOR_MAC}
+      - DJANGO_DEBUG=${DJANGO_DEBUG}
+      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS}
+      - DJANGO_SETTINGS_MODULE=temperature.production_settings
     networks:
       - temperature_network
 
