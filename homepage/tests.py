@@ -9,8 +9,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from homepage.models import Temperature
-from homepage.views import fetch_new_data
 from homepage.test_utils import MockSwitchBotService
+from homepage.views import fetch_new_data
 
 
 class TemperatureModelTests(TestCase):
