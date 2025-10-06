@@ -265,7 +265,7 @@ jobs:
         Write-Output "🌐 Access your application at: http://localhost:7070"
 
   deploy-production:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, windows]
     needs: [test, security-scan, code-quality]
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
 
@@ -273,12 +273,75 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Deploy to production
+    - name: Set environment variables for production (Windows)
+      shell: pwsh
       run: |
-        echo "🚀 Deploying to production environment"
-        echo "This would typically involve:"
-        echo "  - Building Docker image with production tag"
-        echo "  - Pushing to container registry"
-        echo "  - Updating production deployment"
-        echo "  - Running health checks"
-        echo "  - Notifying team of deployment"
+        Write-Output "🔧 Setting environment variables for Docker Compose..."
+        # Set environment variables for docker-compose to use
+        $env:SWITCHBOT_TOKEN = "${{ secrets.SWITCHBOT_TOKEN }}"
+        $env:SWITCHBOT_SECRET = "${{ secrets.SWITCHBOT_SECRET }}"
+        $env:LIVING_ROOM_MAC = "${{ secrets.LIVING_ROOM_MAC }}"
+        $env:BEDROOM_MAC = "${{ secrets.BEDROOM_MAC }}"
+        $env:OFFICE_MAC = "${{ secrets.OFFICE_MAC }}"
+        $env:OUTDOOR_MAC = "${{ secrets.OUTDOOR_MAC }}"
+        $env:TEMPERATURE_INTERVAL = "600"
+        $env:ENVIRONMENT = "production"
+        $env:DATABASE_PATH = "/app/data/db.sqlite3"
+        $env:DAEMON_STATUS_FILE = "/app/data/daemon_status.json"
+        # Django production settings
+        $env:DJANGO_SETTINGS_MODULE = "temperature.production_settings"
+        $env:DJANGO_DEBUG = "False"
+        $env:DJANGO_ALLOWED_HOSTS = "${{ secrets.DJANGO_ALLOWED_HOSTS }}"
+
+        # Export variables for subsequent steps
+        echo "SWITCHBOT_TOKEN=${{ secrets.SWITCHBOT_TOKEN }}" >> $env:GITHUB_ENV
+        echo "SWITCHBOT_SECRET=${{ secrets.SWITCHBOT_SECRET }}" >> $env:GITHUB_ENV
+        echo "LIVING_ROOM_MAC=${{ secrets.LIVING_ROOM_MAC }}" >> $env:GITHUB_ENV
+        echo "BEDROOM_MAC=${{ secrets.BEDROOM_MAC }}" >> $env:GITHUB_ENV
+        echo "OFFICE_MAC=${{ secrets.OFFICE_MAC }}" >> $env:GITHUB_ENV
+        echo "OUTDOOR_MAC=${{ secrets.OUTDOOR_MAC }}" >> $env:GITHUB_ENV
+        echo "TEMPERATURE_INTERVAL=600" >> $env:GITHUB_ENV
+        echo "ENVIRONMENT=production" >> $env:GITHUB_ENV
+        echo "DATABASE_PATH=/app/data/db.sqlite3" >> $env:GITHUB_ENV
+        echo "DAEMON_STATUS_FILE=/app/data/daemon_status.json" >> $env:GITHUB_ENV
+        echo "DJANGO_SETTINGS_MODULE=temperature.settings" >> $env:GITHUB_ENV
+        echo "DJANGO_DEBUG=False" >> $env:GITHUB_ENV
+        echo "DJANGO_ALLOWED_HOSTS=${{ secrets.DJANGO_ALLOWED_HOSTS }}" >> $env:GITHUB_ENV
+
+        Write-Output "✅ Environment variables set successfully"
+    - name: Stop existing containers (Windows)
+      shell: pwsh
+      run: |
+        Write-Output "🛑 Stopping existing Docker containers..."
+        docker-compose -f ci/docker-compose.production.yml down
+        Write-Output "✅ Existing containers stopped"
+    - name: Clean up old images (Windows)
+      shell: pwsh
+      run: |
+        Write-Output "🧹 Cleaning up old Docker images..."
+        docker image prune -f
+        Write-Output "✅ Old Docker images cleaned up"
+    - name: Deploy to production (Windows)
+      shell: pwsh
+      run: |
+        Write-Output "🚀 Deploying to production environment"
+        docker-compose -f ci/docker-compose.production.yml up -d --build
+        Write-Output "✅ Deployment to production complete"
+    - name: Wait for services to be ready (Windows)
+      shell: pwsh
+      run: |
+        Write-Output "⏳ Waiting for services to be ready..."
+        Start-Sleep -Seconds 30
+        Write-Output "✅ Services are ready"
+    - name: Health check (Windows)
+      shell: pwsh
+      run: |
+        Write-Output "🩺 Performing health check..."
+        $healthCheck = docker-compose -f ci/docker-compose.production.yml exec -T temperature-daemon curl -f http://localhost:7000/health || true
+        if ($healthCheck -match "healthy") {
+          Write-Output "✅ Health check passed"
+        } else {
+          Write-Output "⚠️ Health check failed"
+        }
+        Write-Output "✅ Production deployment complete on Windows host"
+        Write-Output "🌐 Access your application at: http://localhost:7000"

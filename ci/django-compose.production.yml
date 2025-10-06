@@ -1,0 +1,114 @@
+# Production Docker Compose Configuration for Temperature Monitoring System
+#
+# This configuration uses the same dockerfiles as preprod but with production-specific settings:
+# - Database and logs stored on host Windows machine (C:\temperature\)
+# - ENVIRONMENT=production for production service behavior
+# - Production ports and container names
+#
+# DOCKERFILES USED (same as preprod):
+# - ci/django.dockerfile (for Django web app)
+# - ci/preprod_daemon.dockerfile (for temperature daemon)
+#
+# SETUP INSTRUCTIONS:
+# 1. Create required directories on the host:
+#    mkdir C:\temperature\data
+#    mkdir C:\temperature\logs
+#
+# 2. Create a .env file with your SwitchBot credentials:
+#    SWITCHBOT_TOKEN=your_token_here
+#    SWITCHBOT_SECRET=your_secret_here
+#    LIVING_ROOM_MAC=your_mac_address
+#    BEDROOM_MAC=your_mac_address
+#    OFFICE_MAC=your_mac_address
+#    OUTDOOR_MAC=your_mac_address
+#
+# 3. Start the services:
+#    docker-compose -f ci/django-compose.production.yml up -d
+#
+# Database file will be accessible at: C:\temperature\data\db.sqlite3
+# Logs will be accessible at: C:\temperature\logs\
+
+version: '3.8'
+
+services:
+  # Temperature Daemon Service
+  temperature-daemon:
+    build:
+      context: ..
+      dockerfile: ci/daemon.dockerfile
+    container_name: temperature_daemon_production
+    restart: unless-stopped
+    volumes:
+      # Bind mount host directory for database storage (Windows path)
+      - C:\temperature\data:/app/data
+      # Bind mount host directory for logs (Windows path)
+      - C:\temperature\logs:/app/logs
+    environment:
+      - DJANGO_SETTINGS_MODULE=temperature.settings
+      - TEMPERATURE_INTERVAL=600  # 10 minutes
+      - RATE_LIMIT_SLEEP_TIME=300  # 5 minutes
+      - DATABASE_PATH=/app/data/db.sqlite3
+      - ENVIRONMENT=production
+      - DAEMON_STATUS_FILE=/app/data/daemon_status.json
+      # SwitchBot credentials from host .env or secrets
+      - SWITCHBOT_TOKEN=${SWITCHBOT_TOKEN}
+      - SWITCHBOT_SECRET=${SWITCHBOT_SECRET}
+      - LIVING_ROOM_MAC=${LIVING_ROOM_MAC}
+      - BEDROOM_MAC=${BEDROOM_MAC}
+      - OFFICE_MAC=${OFFICE_MAC}
+      - OUTDOOR_MAC=${OUTDOOR_MAC}
+    networks:
+      - temperature_network
+    depends_on:
+      - django-app  # Optional: ensure Django app starts first
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "temperature_daemon.py"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Main Django Application (example)
+  django-app:
+    build:
+      context: ..
+      dockerfile: ci/django.dockerfile
+    image: temperate_dashboard_production:latest
+    container_name: django_app_production
+    restart: unless-stopped
+    ports:
+      # Expose production Django app on port 7000
+      - "7000:8000"
+    volumes:
+      # Bind mount same host directory for database storage
+      - C:\temperature\data:/app/data
+    environment:
+      - DJANGO_SETTINGS_MODULE=temperature.production_settings
+      - DATABASE_PATH=/app/data/db.sqlite3
+      - ENVIRONMENT=production
+      - DAEMON_STATUS_FILE=/app/data/daemon_status.json
+      - DJANGO_DEBUG=${DJANGO_DEBUG:-False}
+      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      # SwitchBot credentials from host .env or secrets
+      - SWITCHBOT_TOKEN=${SWITCHBOT_TOKEN}
+      - SWITCHBOT_SECRET=${SWITCHBOT_SECRET}
+      - LIVING_ROOM_MAC=${LIVING_ROOM_MAC}
+      - BEDROOM_MAC=${BEDROOM_MAC}
+      - OFFICE_MAC=${OFFICE_MAC}
+      - OUTDOOR_MAC=${OUTDOOR_MAC}
+    networks:
+      - temperature_network
+
+volumes:
+  # Note: Using host bind mounts instead of Docker volumes
+  # Database and logs are stored on the host Windows machine at:
+  # - C:\temperature\data\db.sqlite3 (database file)
+  # - C:\temperature\logs\ (daemon logs)
+  #
+  # Make sure these directories exist on the host before starting containers:
+  # mkdir C:\temperature\data
+  # mkdir C:\temperature\logs
+
+networks:
+  temperature_network:
+    driver: bridge
