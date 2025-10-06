@@ -142,7 +142,7 @@ jobs:
         mypy homepage/ scripts/ temperature/ --ignore-missing-imports || true
 
   deploy-staging:
-    runs-on: self-hosted  # Use your host machine as runner
+    runs-on: [self-hosted, windows]
     needs: [test, security-scan, code-quality]
     if: |
       contains(github.head_ref, 'feature/') || contains(github.head_ref, 'bugfix/')
@@ -153,9 +153,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Create .env file for staging
+    - name: Create .env file for staging (Windows)
+      shell: pwsh
       run: |
-        cat > .env << EOF
+        @"
         SWITCHBOT_TOKEN=${{ secrets.SWITCHBOT_TOKEN }}
         SWITCHBOT_SECRET=${{ secrets.SWITCHBOT_SECRET }}
         LIVING_ROOM_MAC=${{ secrets.LIVING_ROOM_MAC }}
@@ -165,38 +166,90 @@ jobs:
         TEMPERATURE_INTERVAL=60
         ENVIRONMENT=preprod
         DATABASE_PATH=/app/data/db.sqlite3
-        EOF
+        "@ | Out-File -FilePath .env -Encoding utf8
 
-    - name: Stop existing containers
+    - name: Stop existing containers (Windows)
+      shell: pwsh
       run: |
-        docker-compose -f ci/docker-compose.preprod.yml down || true
+        try {
+          docker-compose -f ci/docker-compose.preprod.yml down
+          Write-Output "✅ Stopped existing containers"
+        } catch {
+          Write-Output "ℹ️ No existing containers to stop"
+        }
 
-    - name: Clean up old images (optional)
+    - name: Clean up old images (Windows)
+      shell: pwsh
       run: |
-        docker system prune -f || true
+        try {
+          docker system prune -f
+          Write-Output "✅ Cleaned up old Docker images"
+        } catch {
+          Write-Output "ℹ️ Docker cleanup completed with warnings"
+        }
 
-    - name: Deploy to staging
+    - name: Deploy to staging (Windows)
+      shell: pwsh
       run: |
-        echo "🚀 Deploying to staging environment on host machine"
+        Write-Output "🚀 Deploying to staging environment on Windows host machine"
         docker-compose -f ci/docker-compose.preprod.yml up --build -d
 
-    - name: Wait for services to be ready
-      run: |
-        echo "⏳ Waiting for services to start..."
-        sleep 30
+        if ($LASTEXITCODE -eq 0) {
+          Write-Output "✅ Docker containers started successfully"
+        } else {
+          Write-Output "❌ Failed to start Docker containers"
+          exit 1
+        }
 
-    - name: Health check
+    - name: Wait for services to be ready (Windows)
+      shell: pwsh
       run: |
-        echo "🔍 Checking service health..."
+        Write-Output "⏳ Waiting for services to start..."
+        Start-Sleep -Seconds 30
+        Write-Output "✅ Wait period completed"
+
+    - name: Health check (Windows)
+      shell: pwsh
+      run: |
+        Write-Output "🔍 Checking service health..."
+
+        # Check container status
         docker-compose -f ci/docker-compose.preprod.yml ps
 
         # Check if Django app is responding
-        curl -f http://localhost:7070/ || echo "Django app not ready yet"
+        try {
+          $response = Invoke-WebRequest -Uri "http://localhost:7070/" -TimeoutSec 10 -UseBasicParsing
+          if ($response.StatusCode -eq 200) {
+            Write-Output "✅ Django app is responding on port 7070"
+          }
+        } catch {
+          Write-Output "⚠️ Django app not ready yet: $($_.Exception.Message)"
+        }
 
-        # Check daemon status
-        docker-compose -f ci/docker-compose.preprod.yml exec -T temperature-daemon ps aux | grep temperature_daemon || echo "Daemon status check"
+        # Check daemon container status
+        try {
+          $daemonStatus = docker-compose -f ci/docker-compose.preprod.yml exec -T temperature-daemon ps aux
+          if ($daemonStatus -match "temperature_daemon") {
+            Write-Output "✅ Temperature daemon is running"
+          } else {
+            Write-Output "⚠️ Temperature daemon status unclear"
+          }
+        } catch {
+          Write-Output "⚠️ Could not check daemon status: $($_.Exception.Message)"
+        }
 
-        echo "✅ Staging deployment complete"
+        # Check daemon status file if accessible
+        try {
+          $statusFile = docker-compose -f ci/docker-compose.preprod.yml exec -T temperature-daemon cat /app/data/daemon_status.json 2>$null
+          if ($statusFile) {
+            Write-Output "✅ Daemon status file accessible"
+          }
+        } catch {
+          Write-Output "ℹ️ Daemon status file check skipped"
+        }
+
+        Write-Output "✅ Staging deployment complete on Windows host"
+        Write-Output "🌐 Access your application at: http://localhost:7070"
 
   deploy-production:
     runs-on: ubuntu-latest
