@@ -7,33 +7,8 @@ on:
     branches: [ main, master ]
 
 jobs:
-  test:    - name: Set environment variables for staging (Windows)
-      shell: pwsh
-      run: |
-        Write-Output "🔧 Setting environment variables for Docker Compose..."
-        # Set environment variables for docker-compose to use
-        $env:SWITCHBOT_TOKEN = "${{ secrets.SWITCHBOT_TOKEN }}"
-        $env:SWITCHBOT_SECRET = "${{ secrets.SWITCHBOT_SECRET }}"
-        $env:LIVING_ROOM_MAC = "${{ secrets.LIVING_ROOM_MAC }}"
-        $env:BEDROOM_MAC = "${{ secrets.BEDROOM_MAC }}"
-        $env:OFFICE_MAC = "${{ secrets.OFFICE_MAC }}"
-        $env:OUTDOOR_MAC = "${{ secrets.OUTDOOR_MAC }}"
-        $env:TEMPERATURE_INTERVAL = "60"
-        $env:ENVIRONMENT = "preprod"
-        $env:DATABASE_PATH = "/app/data/db.sqlite3"
-
-        # Export variables for subsequent steps
-        echo "SWITCHBOT_TOKEN=${{ secrets.SWITCHBOT_TOKEN }}" >> $env:GITHUB_ENV
-        echo "SWITCHBOT_SECRET=${{ secrets.SWITCHBOT_SECRET }}" >> $env:GITHUB_ENV
-        echo "LIVING_ROOM_MAC=${{ secrets.LIVING_ROOM_MAC }}" >> $env:GITHUB_ENV
-        echo "BEDROOM_MAC=${{ secrets.BEDROOM_MAC }}" >> $env:GITHUB_ENV
-        echo "OFFICE_MAC=${{ secrets.OFFICE_MAC }}" >> $env:GITHUB_ENV
-        echo "OUTDOOR_MAC=${{ secrets.OUTDOOR_MAC }}" >> $env:GITHUB_ENV
-        echo "TEMPERATURE_INTERVAL=60" >> $env:GITHUB_ENV
-        echo "ENVIRONMENT=preprod" >> $env:GITHUB_ENV
-        echo "DATABASE_PATH=/app/data/db.sqlite3" >> $env:GITHUB_ENV
-
-        Write-Output "✅ Environment variables set successfully" ubuntu-latest
+  test:
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
@@ -178,20 +153,33 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Create .env file for staging (Windows)
-      shell: powershell
+    - name: Set environment variables for staging (Windows)
+      shell: pwsh
       run: |
-        @"
-        SWITCHBOT_TOKEN=${{ secrets.SWITCHBOT_TOKEN }}
-        SWITCHBOT_SECRET=${{ secrets.SWITCHBOT_SECRET }}
-        LIVING_ROOM_MAC=${{ secrets.LIVING_ROOM_MAC }}
-        BEDROOM_MAC=${{ secrets.BEDROOM_MAC }}
-        OFFICE_MAC=${{ secrets.OFFICE_MAC }}
-        OUTDOOR_MAC=${{ secrets.OUTDOOR_MAC }}
-        TEMPERATURE_INTERVAL=60
-        ENVIRONMENT=preprod
-        DATABASE_PATH=/app/data/db.sqlite3
-        "@ | Out-File -FilePath .env -Encoding utf8
+        Write-Output "🔧 Setting environment variables for Docker Compose..."
+        # Set environment variables for docker-compose to use
+        $env:SWITCHBOT_TOKEN = "${{ secrets.SWITCHBOT_TOKEN }}"
+        $env:SWITCHBOT_SECRET = "${{ secrets.SWITCHBOT_SECRET }}"
+        $env:LIVING_ROOM_MAC = "${{ secrets.LIVING_ROOM_MAC }}"
+        $env:BEDROOM_MAC = "${{ secrets.BEDROOM_MAC }}"
+        $env:OFFICE_MAC = "${{ secrets.OFFICE_MAC }}"
+        $env:OUTDOOR_MAC = "${{ secrets.OUTDOOR_MAC }}"
+        $env:TEMPERATURE_INTERVAL = "60"
+        $env:ENVIRONMENT = "preprod"
+        $env:DATABASE_PATH = "/app/data/db.sqlite3"
+
+        # Export variables for subsequent steps
+        echo "SWITCHBOT_TOKEN=${{ secrets.SWITCHBOT_TOKEN }}" >> $env:GITHUB_ENV
+        echo "SWITCHBOT_SECRET=${{ secrets.SWITCHBOT_SECRET }}" >> $env:GITHUB_ENV
+        echo "LIVING_ROOM_MAC=${{ secrets.LIVING_ROOM_MAC }}" >> $env:GITHUB_ENV
+        echo "BEDROOM_MAC=${{ secrets.BEDROOM_MAC }}" >> $env:GITHUB_ENV
+        echo "OFFICE_MAC=${{ secrets.OFFICE_MAC }}" >> $env:GITHUB_ENV
+        echo "OUTDOOR_MAC=${{ secrets.OUTDOOR_MAC }}" >> $env:GITHUB_ENV
+        echo "TEMPERATURE_INTERVAL=60" >> $env:GITHUB_ENV
+        echo "ENVIRONMENT=preprod" >> $env:GITHUB_ENV
+        echo "DATABASE_PATH=/app/data/db.sqlite3" >> $env:GITHUB_ENV
+
+        Write-Output "✅ Environment variables set successfully"
 
     - name: Stop existing containers (Windows)
       shell: pwsh
@@ -204,39 +192,39 @@ jobs:
         }
 
     - name: Clean up old images (Windows)
-      shell: powershell
+      shell: pwsh
       run: |
         try {
           docker system prune -f
-          Write-Output "[OK] Cleaned up old Docker images"
+          Write-Output "✅ Cleaned up old Docker images"
         } catch {
-          Write-Output "[INFO] Docker cleanup completed with warnings"
+          Write-Output "ℹ️ Docker cleanup completed with warnings"
         }
 
     - name: Deploy to staging (Windows)
-      shell: powershell
+      shell: pwsh
       run: |
-        Write-Output "[DEPLOY] Deploying to staging environment on Windows host machine"
+        Write-Output "🚀 Deploying to staging environment on Windows host machine"
         docker-compose -f ci/docker-compose.preprod.yml up --build -d
 
         if ($LASTEXITCODE -eq 0) {
-          Write-Output "[OK] Docker containers started successfully"
+          Write-Output "✅ Docker containers started successfully"
         } else {
-          Write-Output "[ERROR] Failed to start Docker containers"
+          Write-Output "❌ Failed to start Docker containers"
           exit 1
         }
 
     - name: Wait for services to be ready (Windows)
-      shell: powershell
+      shell: pwsh
       run: |
-        Write-Output "[WAIT] Waiting for services to start..."
+        Write-Output "⏳ Waiting for services to start..."
         Start-Sleep -Seconds 30
-        Write-Output "[OK] Wait period completed"
+        Write-Output "✅ Wait period completed"
 
     - name: Health check (Windows)
-      shell: powershell
+      shell: pwsh
       run: |
-        Write-Output "[CHECK] Checking service health..."
+        Write-Output "🔍 Checking service health..."
 
         # Check container status
         docker-compose -f ci/docker-compose.preprod.yml ps
@@ -245,36 +233,36 @@ jobs:
         try {
           $response = Invoke-WebRequest -Uri "http://localhost:7070/" -TimeoutSec 10 -UseBasicParsing
           if ($response.StatusCode -eq 200) {
-            Write-Output "[OK] Django app is responding on port 7070"
+            Write-Output "✅ Django app is responding on port 7070"
           }
         } catch {
-          Write-Output "[WARN] Django app not ready yet: $($_.Exception.Message)"
+          Write-Output "⚠️ Django app not ready yet: $($_.Exception.Message)"
         }
 
         # Check daemon container status
         try {
           $daemonStatus = docker-compose -f ci/docker-compose.preprod.yml exec -T temperature-daemon ps aux
           if ($daemonStatus -match "temperature_daemon") {
-            Write-Output "[OK] Temperature daemon is running"
+            Write-Output "✅ Temperature daemon is running"
           } else {
-            Write-Output "[WARN] Temperature daemon status unclear"
+            Write-Output "⚠️ Temperature daemon status unclear"
           }
         } catch {
-          Write-Output "[WARN] Could not check daemon status: $($_.Exception.Message)"
+          Write-Output "⚠️ Could not check daemon status: $($_.Exception.Message)"
         }
 
         # Check daemon status file if accessible
         try {
           $statusFile = docker-compose -f ci/docker-compose.preprod.yml exec -T temperature-daemon cat /app/data/daemon_status.json 2>$null
           if ($statusFile) {
-            Write-Output "[OK] Daemon status file accessible"
+            Write-Output "✅ Daemon status file accessible"
           }
         } catch {
-          Write-Output "[INFO] Daemon status file check skipped"
+          Write-Output "ℹ️ Daemon status file check skipped"
         }
 
-        Write-Output "[OK] Staging deployment complete on Windows host"
-        Write-Output "[URL] Access your application at: http://localhost:7070"
+        Write-Output "✅ Staging deployment complete on Windows host"
+        Write-Output "🌐 Access your application at: http://localhost:7070"
 
   deploy-production:
     runs-on: ubuntu-latest
@@ -287,7 +275,7 @@ jobs:
 
     - name: Deploy to production
       run: |
-        echo "[DEPLOY] Deploying to production environment"
+        echo "🚀 Deploying to production environment"
         echo "This would typically involve:"
         echo "  - Building Docker image with production tag"
         echo "  - Pushing to container registry"
