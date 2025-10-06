@@ -55,7 +55,9 @@ class TemperatureDaemonInitializationTests(TemperatureDaemonTestCase):
         """Test successful daemon initialization in production environment."""
         # Import here to avoid Django configuration issues
         with patch("scripts.temperature_daemon.django.setup"):
-            with patch("scripts.temperature_daemon.SwitchBotService") as mock_service_class:
+            with patch(
+                "scripts.temperature_daemon.SwitchBotService"
+            ) as mock_service_class:
                 from scripts.temperature_daemon import TemperatureDaemon
 
                 # Mock service
@@ -77,7 +79,9 @@ class TemperatureDaemonInitializationTests(TemperatureDaemonTestCase):
         """Test successful daemon initialization in preprod environment."""
         # Import here to avoid Django configuration issues
         with patch("scripts.temperature_daemon.django.setup"):
-            with patch("scripts.temperature_daemon.PreProdSwitchBotService") as mock_service_class:
+            with patch(
+                "scripts.temperature_daemon.PreProdSwitchBotService"
+            ) as mock_service_class:
                 from scripts.temperature_daemon import TemperatureDaemon
 
                 # Mock service
@@ -104,7 +108,9 @@ class TemperatureDaemonInitializationTests(TemperatureDaemonTestCase):
             # Remove credentials from environment
             with patch.dict(os.environ, {}, clear=True):
                 with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
-                    with patch("scripts.temperature_daemon.SwitchBotService") as mock_service_class:
+                    with patch(
+                        "scripts.temperature_daemon.SwitchBotService"
+                    ) as mock_service_class:
                         # Mock service to raise ValueError for missing credentials
                         mock_service_class.side_effect = ValueError(
                             "SWITCHBOT_TOKEN and SWITCHBOT_SECRET must be set in environment variables"
@@ -122,7 +128,9 @@ class TemperatureDaemonInitializationTests(TemperatureDaemonTestCase):
         """Test daemon initialization with default MAC addresses."""
         # Import here to avoid Django configuration issues
         with patch("scripts.temperature_daemon.django.setup"):
-            with patch("scripts.temperature_daemon.SwitchBotService") as mock_service_class:
+            with patch(
+                "scripts.temperature_daemon.SwitchBotService"
+            ) as mock_service_class:
                 from scripts.temperature_daemon import TemperatureDaemon
 
                 # Mock service
@@ -131,11 +139,14 @@ class TemperatureDaemonInitializationTests(TemperatureDaemonTestCase):
 
                 # Remove all MAC environment variables to test defaults
                 with patch.dict(os.environ, {}, clear=True):
-                    with patch.dict(os.environ, {
-                        "SWITCHBOT_TOKEN": "test_token",
-                        "SWITCHBOT_SECRET": "test_secret",
-                        "ENVIRONMENT": "production"
-                    }):
+                    with patch.dict(
+                        os.environ,
+                        {
+                            "SWITCHBOT_TOKEN": "test_token",
+                            "SWITCHBOT_SECRET": "test_secret",
+                            "ENVIRONMENT": "production",
+                        },
+                    ):
                         daemon = TemperatureDaemon()
 
                 # Verify default MAC addresses are used
@@ -143,7 +154,7 @@ class TemperatureDaemonInitializationTests(TemperatureDaemonTestCase):
                     "living_room_thermometer": "D40E84863006",
                     "bedroom_thermometer": "D40E84861814",
                     "office_thermometer": "D628EA1C498F",
-                    "outdoor_thermometer": "D40E84064570"
+                    "outdoor_thermometer": "D40E84064570",
                 }
                 self.assertEqual(daemon.devices, expected_devices)
 
@@ -151,7 +162,9 @@ class TemperatureDaemonInitializationTests(TemperatureDaemonTestCase):
         """Test daemon initialization with custom MAC addresses from environment."""
         # Import here to avoid Django configuration issues
         with patch("scripts.temperature_daemon.django.setup"):
-            with patch("scripts.temperature_daemon.SwitchBotService") as mock_service_class:
+            with patch(
+                "scripts.temperature_daemon.SwitchBotService"
+            ) as mock_service_class:
                 from scripts.temperature_daemon import TemperatureDaemon
 
                 # Mock service
@@ -166,7 +179,7 @@ class TemperatureDaemonInitializationTests(TemperatureDaemonTestCase):
                     "LIVING_ROOM_MAC": "CUSTOM001",
                     "BEDROOM_MAC": "CUSTOM002",
                     "OFFICE_MAC": "CUSTOM003",
-                    "OUTDOOR_MAC": "CUSTOM004"
+                    "OUTDOOR_MAC": "CUSTOM004",
                 }
 
                 with patch.dict(os.environ, custom_env):
@@ -177,7 +190,7 @@ class TemperatureDaemonInitializationTests(TemperatureDaemonTestCase):
                     "living_room_thermometer": "CUSTOM001",
                     "bedroom_thermometer": "CUSTOM002",
                     "office_thermometer": "CUSTOM003",
-                    "outdoor_thermometer": "CUSTOM004"
+                    "outdoor_thermometer": "CUSTOM004",
                 }
                 self.assertEqual(daemon.devices, expected_devices)
 
@@ -185,7 +198,9 @@ class TemperatureDaemonInitializationTests(TemperatureDaemonTestCase):
         """Test that device configuration has the expected structure."""
         # Import here to avoid Django configuration issues
         with patch("scripts.temperature_daemon.django.setup"):
-            with patch("scripts.temperature_daemon.SwitchBotService") as mock_service_class:
+            with patch(
+                "scripts.temperature_daemon.SwitchBotService"
+            ) as mock_service_class:
                 from scripts.temperature_daemon import TemperatureDaemon
 
                 # Mock service
@@ -199,14 +214,17 @@ class TemperatureDaemonInitializationTests(TemperatureDaemonTestCase):
                     "living_room_thermometer",
                     "bedroom_thermometer",
                     "office_thermometer",
-                    "outdoor_thermometer"
+                    "outdoor_thermometer",
                 }
                 self.assertEqual(set(daemon.devices.keys()), expected_device_names)
 
                 # Verify all MAC addresses are strings
                 for device_name, mac_address in daemon.devices.items():
                     self.assertIsInstance(mac_address, str)
-                    self.assertTrue(len(mac_address) > 0, f"MAC address for {device_name} should not be empty")
+                    self.assertTrue(
+                        len(mac_address) > 0,
+                        f"MAC address for {device_name} should not be empty",
+                    )
 
 
 class TemperatureDaemonDataCollectionTests(TemperatureDaemonTestCase):
@@ -231,8 +249,12 @@ class TemperatureDaemonDataCollectionTests(TemperatureDaemonTestCase):
         self.mock_service.set_device_data("MAC004", 15.5, 85.0)  # Outdoor
 
         # Patch the service classes to return our mock
-        self.switchbot_service_patcher = patch("scripts.temperature_daemon.SwitchBotService")
-        self.preprod_service_patcher = patch("scripts.temperature_daemon.PreProdSwitchBotService")
+        self.switchbot_service_patcher = patch(
+            "scripts.temperature_daemon.SwitchBotService"
+        )
+        self.preprod_service_patcher = patch(
+            "scripts.temperature_daemon.PreProdSwitchBotService"
+        )
 
         mock_switchbot_service = self.switchbot_service_patcher.start()
         mock_preprod_service = self.preprod_service_patcher.start()
@@ -243,6 +265,7 @@ class TemperatureDaemonDataCollectionTests(TemperatureDaemonTestCase):
         # Create daemon with test environment
         with patch.dict(os.environ, {"ENVIRONMENT": "test"}):
             from scripts.temperature_daemon import TemperatureDaemon
+
             self.daemon = TemperatureDaemon()
 
     def tearDown(self):
@@ -270,7 +293,9 @@ class TemperatureDaemonDataCollectionTests(TemperatureDaemonTestCase):
     def test_get_temperature_device_failure(self):
         """Test temperature reading when device fails."""
         # Make device fail
-        self.mock_service.set_device_failure("MAC001", True, "Device communication error")
+        self.mock_service.set_device_failure(
+            "MAC001", True, "Device communication error"
+        )
 
         temperature = self.daemon.get_temperature("living_room_thermometer")
         self.assertIsNone(temperature)
@@ -364,13 +389,17 @@ class TemperatureDaemonMainLoopTests(TemperatureDaemonTestCase):
 
             # Test production environment
             with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
-                with patch("scripts.temperature_daemon.SwitchBotService") as mock_service:
+                with patch(
+                    "scripts.temperature_daemon.SwitchBotService"
+                ) as mock_service:
                     _ = TemperatureDaemon()
                     mock_service.assert_called_once()
 
             # Test preprod environment
             with patch.dict(os.environ, {"ENVIRONMENT": "preprod"}):
-                with patch("scripts.temperature_daemon.PreProdSwitchBotService") as mock_preprod_service:
+                with patch(
+                    "scripts.temperature_daemon.PreProdSwitchBotService"
+                ) as mock_preprod_service:
                     _ = TemperatureDaemon()
                     mock_preprod_service.assert_called_once()
 

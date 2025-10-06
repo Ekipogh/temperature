@@ -302,8 +302,8 @@ class FetchNewDataTests(TestCase):
         {
             "SWITCHBOT_TOKEN": "test_token",
             "SWITCHBOT_SECRET": "test_secret",
-            "ENVIRONMENT": "test"
-        }
+            "ENVIRONMENT": "test",
+        },
     )
     @patch("homepage.views.SwitchBot")
     def test_fetch_new_data_device_error(self, mock_switchbot_class):
@@ -327,8 +327,8 @@ class FetchNewDataTests(TestCase):
         {
             "SWITCHBOT_TOKEN": "test_token",
             "SWITCHBOT_SECRET": "test_secret",
-            "ENVIRONMENT": "test"
-        }
+            "ENVIRONMENT": "test",
+        },
     )
     @patch("homepage.views.SwitchBot")
     def test_fetch_new_data_status_error(self, mock_switchbot_class):
@@ -355,8 +355,8 @@ class FetchNewDataTests(TestCase):
         {
             "SWITCHBOT_TOKEN": "test_token",
             "SWITCHBOT_SECRET": "test_secret",
-            "ENVIRONMENT": "preprod"  # Test preprod environment behavior
-        }
+            "ENVIRONMENT": "preprod",  # Test preprod environment behavior
+        },
     )
     def test_fetch_new_data_preprod_environment(self):
         """Test fetch_new_data behavior in preprod environment."""

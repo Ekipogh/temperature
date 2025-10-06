@@ -30,8 +30,7 @@ django.setup()
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.FileHandler(
-        "temperature_daemon.log"), logging.StreamHandler()],
+    handlers=[logging.FileHandler("temperature_daemon.log"), logging.StreamHandler()],
 )
 logger = logging.getLogger(__name__)
 
@@ -48,7 +47,8 @@ class SwitchBotService:
         secret = os.getenv("SWITCHBOT_SECRET")
         if not token or not secret:
             raise ValueError(
-                "SWITCHBOT_TOKEN and SWITCHBOT_SECRET must be set in environment variables")
+                "SWITCHBOT_TOKEN and SWITCHBOT_SECRET must be set in environment variables"
+            )
         if not self._bot:
             self._bot = SwitchBot(token=token, secret=secret)
         device = self._bot.device(id=mac_address)
@@ -99,8 +99,7 @@ class TemperatureDaemon:
     def __init__(self):
         self.running = True
         # Increased default interval to 10 minutes (600 seconds) to be API-friendly
-        self.interval = int(
-            os.getenv("TEMPERATURE_INTERVAL", "600"))  # seconds
+        self.interval = int(os.getenv("TEMPERATURE_INTERVAL", "600"))  # seconds
 
         # Increased rate limit sleep to 5 minutes to avoid hitting API limits
         self.rate_limit_sleep_time = int(
@@ -143,8 +142,7 @@ class TemperatureDaemon:
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
 
-        is_preprod = os.getenv(
-            "ENVIRONMENT", "production").lower() == "preprod"
+        is_preprod = os.getenv("ENVIRONMENT", "production").lower() == "preprod"
         # Initialize SwitchBot service
         if is_preprod:
             logger.info("🛠️ Running in pre-production mode")
@@ -155,8 +153,7 @@ class TemperatureDaemon:
         # Initialize devices (now all required attributes are available)
         self._init_devices()
 
-        logger.info(
-            f"TemperatureDaemon initialized with {len(self.devices)} devices")
+        logger.info(f"TemperatureDaemon initialized with {len(self.devices)} devices")
 
     def _init_devices(self):
         """Initialize device configuration by storing MAC addresses."""
@@ -171,7 +168,9 @@ class TemperatureDaemon:
         # Simply store the MAC addresses - the SwitchBotService handles all device communication
         self.devices = device_configs.copy()
 
-        logger.info(f"Configured {len(self.devices)} devices: {list(self.devices.keys())}")
+        logger.info(
+            f"Configured {len(self.devices)} devices: {list(self.devices.keys())}"
+        )
 
     def _update_status(
         self, consecutive_failures: int = 0, successful_reading: bool = False
@@ -278,12 +277,10 @@ class TemperatureDaemon:
 
         for attempt in range(max_attempts):
             try:
-                temperature = self.switchbot_service.get_temperature(
-                    mac_address)
+                temperature = self.switchbot_service.get_temperature(mac_address)
 
                 if temperature is None:
-                    logger.warning(
-                        f"No temperature reading from {device_name}")
+                    logger.warning(f"No temperature reading from {device_name}")
                     return None
 
                 # Validate temperature range (reasonable for indoor/outdoor temps)
@@ -334,8 +331,7 @@ class TemperatureDaemon:
                         return None
                 else:
                     # Other errors - log and return None
-                    logger.error(
-                        f"Error reading temperature from {device_name}: {e}")
+                    logger.error(f"Error reading temperature from {device_name}: {e}")
                     return None
 
         return None
@@ -405,8 +401,7 @@ class TemperatureDaemon:
                         return None
                 else:
                     # Other errors - log and return None
-                    logger.error(
-                        f"Error reading humidity from {device_name}: {e}")
+                    logger.error(f"Error reading humidity from {device_name}: {e}")
                     return None
 
         return None
@@ -469,8 +464,7 @@ class TemperatureDaemon:
 
     def run(self):
         """Main daemon loop with comprehensive error handling."""
-        logger.info(
-            f"Starting temperature daemon with {self.interval}s interval")
+        logger.info(f"Starting temperature daemon with {self.interval}s interval")
 
         consecutive_failures = 0
         max_consecutive_failures = 5
@@ -478,8 +472,7 @@ class TemperatureDaemon:
         try:
             while self.running:
                 self.iteration_counter += 1
-                logger.info(
-                    f"--- Daemon iteration {self.iteration_counter} ---")
+                logger.info(f"--- Daemon iteration {self.iteration_counter} ---")
 
                 # Check if we have devices, if not try to initialize them
                 if not self.devices:
@@ -493,8 +486,7 @@ class TemperatureDaemon:
                                 "Device re-initialization failed, will retry next cycle"
                             )
                     except Exception as e:
-                        logger.error(
-                            f"Error during device re-initialization: {e}")
+                        logger.error(f"Error during device re-initialization: {e}")
 
                 cycle_success = False
 
@@ -534,8 +526,7 @@ class TemperatureDaemon:
                     )
                 else:
                     consecutive_failures += 1
-                    logger.warning(
-                        f"Complete cycle failure #{consecutive_failures}")
+                    logger.warning(f"Complete cycle failure #{consecutive_failures}")
 
                     if consecutive_failures >= max_consecutive_failures:
                         logger.critical(

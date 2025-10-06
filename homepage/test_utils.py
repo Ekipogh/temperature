@@ -32,12 +32,16 @@ class MockSwitchBotService:
             return None
         return self.humidity_values.get(mac_address)
 
-    def set_device_data(self, mac_address: str, temperature: Optional[float], humidity: Optional[float]):
+    def set_device_data(
+        self, mac_address: str, temperature: Optional[float], humidity: Optional[float]
+    ):
         """Set mock data for a device."""
         self.temperature_values[mac_address] = temperature
         self.humidity_values[mac_address] = humidity
 
-    def set_device_failure(self, mac_address: str, should_fail: bool = True, message: str = "Mock failure"):
+    def set_device_failure(
+        self, mac_address: str, should_fail: bool = True, message: str = "Mock failure"
+    ):
         """Configure a device to fail."""
         self.should_fail[mac_address] = should_fail
         self.failure_messages[mac_address] = message

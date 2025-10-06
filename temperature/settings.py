@@ -80,7 +80,7 @@ DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
 # Database configuration - can be overridden with environment variables
-DATABASE_PATH = os.getenv('DATABASE_PATH', str(DATA_DIR / "db.sqlite3"))
+DATABASE_PATH = os.getenv("DATABASE_PATH", str(DATA_DIR / "db.sqlite3"))
 
 DATABASES = {
     "default": {
