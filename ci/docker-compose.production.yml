@@ -99,16 +99,6 @@ services:
     networks:
       - temperature_network
 
-volumes:
-  # Note: Using host bind mounts instead of Docker volumes
-  # Database and logs are stored on the host Windows machine at:
-  # - C:\temperature\data\db.sqlite3 (database file)
-  # - C:\temperature\logs\ (daemon logs)
-  #
-  # Make sure these directories exist on the host before starting containers:
-  # mkdir C:\temperature\data
-  # mkdir C:\temperature\logs
-
 networks:
   temperature_network:
     driver: bridge
