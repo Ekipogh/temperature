@@ -5,7 +5,7 @@ services:
   temperature-daemon:
     build:
       context: ..
-      dockerfile: ci/preprod_daemon.dockerfile
+      dockerfile: ci/daemon.dockerfile
     container_name: temperature_daemon_preprod
     restart: unless-stopped
     volumes:
