@@ -46,4 +46,4 @@ ENV DJANGO_SETTINGS_MODULE=temperature.settings
 EXPOSE 8000
 RUN chmod +x /app/startup.sh
 # Set the entrypoint to the startup script
-ENTRYPOINT ["/app/startup.sh", "8000"]
+ENTRYPOINT ["bash", "/app/startup.sh", "8000"]
