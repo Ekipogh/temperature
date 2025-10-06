@@ -365,13 +365,13 @@ class TemperatureDaemonMainLoopTests(TemperatureDaemonTestCase):
             # Test production environment
             with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
                 with patch("scripts.temperature_daemon.SwitchBotService") as mock_service:
-                    daemon = TemperatureDaemon()
+                    _ = TemperatureDaemon()
                     mock_service.assert_called_once()
 
             # Test preprod environment
             with patch.dict(os.environ, {"ENVIRONMENT": "preprod"}):
                 with patch("scripts.temperature_daemon.PreProdSwitchBotService") as mock_preprod_service:
-                    daemon = TemperatureDaemon()
+                    _ = TemperatureDaemon()
                     mock_preprod_service.assert_called_once()
 
     def test_preprod_service_returns_random_values(self):
