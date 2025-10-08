@@ -12,6 +12,8 @@ class SwitchBotService:
 
     def __init__(self):
         self._bot = None
+        self._token = None
+        self._secret = None
 
     def connect(self, mac_address: str):
         """Connect to the SwitchBot device."""
@@ -21,10 +23,23 @@ class SwitchBotService:
             raise ValueError(
                 "SWITCHBOT_TOKEN and SWITCHBOT_SECRET must be set in environment variables"
             )
-        if not self._bot:
+
+        # Create new SwitchBot instance if credentials changed or not initialized
+        if not self._bot or self._token != token or self._secret != secret:
+            logger.info("Creating new SwitchBot client instance")
             self._bot = SwitchBot(token=token, secret=secret)
+            self._token = token
+            self._secret = secret
+
         device = self._bot.device(id=mac_address)
         return device
+
+    def _reset_connection(self):
+        """Reset the SwitchBot connection to force recreation on next request."""
+        logger.info("Resetting SwitchBot connection due to authentication error")
+        self._bot = None
+        self._token = None
+        self._secret = None
 
     def get_temperature(self, mac_address: str) -> Optional[float]:
         """Get temperature reading from the device."""
@@ -37,8 +52,26 @@ class SwitchBotService:
             temperature = float(temp_value)
             return temperature
         except Exception as e:
-            logger.error(f"Error getting temperature from {mac_address}: {e}")
-            return None
+            error_str = str(e).lower()
+            # Handle authentication errors by resetting connection
+            if "401" in str(e) or "authentication" in error_str or "unauthorized" in error_str:
+                logger.warning(f"Authentication error getting temperature from {mac_address}, resetting connection: {e}")
+                self._reset_connection()
+                # Try once more with fresh connection
+                try:
+                    device = self.connect(mac_address)
+                    status = device.status()
+                    temp_value = status.get("temperature")
+                    if temp_value is None:
+                        return None
+                    temperature = float(temp_value)
+                    return temperature
+                except Exception as retry_e:
+                    logger.error(f"Retry failed for temperature from {mac_address}: {retry_e}")
+                    return None
+            else:
+                logger.error(f"Error getting temperature from {mac_address}: {e}")
+                return None
 
     def get_humidity(self, mac_address: str) -> Optional[float]:
         """Get humidity reading from the device."""
@@ -51,8 +84,26 @@ class SwitchBotService:
             humidity = float(humidity_value)
             return humidity
         except Exception as e:
-            logger.error(f"Error getting humidity from {mac_address}: {e}")
-            return None
+            error_str = str(e).lower()
+            # Handle authentication errors by resetting connection
+            if "401" in str(e) or "authentication" in error_str or "unauthorized" in error_str:
+                logger.warning(f"Authentication error getting humidity from {mac_address}, resetting connection: {e}")
+                self._reset_connection()
+                # Try once more with fresh connection
+                try:
+                    device = self.connect(mac_address)
+                    status = device.status()
+                    humidity_value = status.get("humidity")
+                    if humidity_value is None:
+                        return None
+                    humidity = float(humidity_value)
+                    return humidity
+                except Exception as retry_e:
+                    logger.error(f"Retry failed for humidity from {mac_address}: {retry_e}")
+                    return None
+            else:
+                logger.error(f"Error getting humidity from {mac_address}: {e}")
+                return None
 
     def get_device_status(self, mac_address: str) -> Optional[Dict]:
         """Get full device status including temperature and humidity."""
@@ -61,8 +112,22 @@ class SwitchBotService:
             status = device.status()
             return status
         except Exception as e:
-            logger.error(f"Error getting status from {mac_address}: {e}")
-            return None
+            error_str = str(e).lower()
+            # Handle authentication errors by resetting connection
+            if "401" in str(e) or "authentication" in error_str or "unauthorized" in error_str:
+                logger.warning(f"Authentication error getting device status from {mac_address}, resetting connection: {e}")
+                self._reset_connection()
+                # Try once more with fresh connection
+                try:
+                    device = self.connect(mac_address)
+                    status = device.status()
+                    return status
+                except Exception as retry_e:
+                    logger.error(f"Retry failed for device status from {mac_address}: {retry_e}")
+                    return None
+            else:
+                logger.error(f"Error getting status from {mac_address}: {e}")
+                return None
 
 
 class PreProdSwitchBotService(SwitchBotService):
