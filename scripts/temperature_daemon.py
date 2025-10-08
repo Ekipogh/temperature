@@ -251,20 +251,12 @@ class TemperatureDaemon:
                         )
                         return None
 
-                # Handle authentication errors
+                # Handle authentication errors - service handles retry internally
                 elif "401" in str(e) or "authentication" in error_str:
                     logger.warning(
-                        f"Authentication error for {device_name}, reinitializing SwitchBot service"
+                        f"Authentication error for {device_name} - service will handle retry"
                     )
-                    try:
-                        self.switchbot_service = get_switchbot_service()
-                        # Don't retry here, let the next iteration handle it
-                        return None
-                    except Exception as init_e:
-                        logger.error(
-                            f"Failed to reinitialize SwitchBot service after auth error: {init_e}"
-                        )
-                        return None
+                    return None
                 else:
                     # Other errors - log and return None
                     logger.error(f"Error reading temperature from {device_name}: {e}")
@@ -321,20 +313,12 @@ class TemperatureDaemon:
                         )
                         return None
 
-                # Handle authentication errors
+                # Handle authentication errors - service handles retry internally
                 elif "401" in str(e) or "authentication" in error_str:
                     logger.warning(
-                        f"Authentication error for {device_name}, reinitializing SwitchBot service"
+                        f"Authentication error for {device_name} - service will handle retry"
                     )
-                    try:
-                        self.switchbot_service = get_switchbot_service()
-                        # Don't retry here, let the next iteration handle it
-                        return None
-                    except Exception as init_e:
-                        logger.error(
-                            f"Failed to reinitialize SwitchBot service after auth error: {init_e}"
-                        )
-                        return None
+                    return None
                 else:
                     # Other errors - log and return None
                     logger.error(f"Error reading humidity from {device_name}: {e}")
