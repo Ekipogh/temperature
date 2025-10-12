@@ -463,6 +463,10 @@
             const filteredDailyData = dailyData.filter(d => d.avg_temp !== null && d.avg_humidity !== null);
             console.log('Filtered daily data:', filteredDailyData);
 
+            // Monthly data
+            const filteredMonthlyData = {{ monthly_data_json|safe }};
+            console.log('Filtered monthly data:', filteredMonthlyData);
+
             // Get canvas contexts
             const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
             const dailyCtx = document.getElementById('dailyChart').getContext('2d');
