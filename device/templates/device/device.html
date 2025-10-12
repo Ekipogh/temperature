@@ -330,6 +330,21 @@
             </div>
         </div>
 
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">
+                            <i class="fas fa-calendar-alt me-2"></i>Monthly Averages
+                        </h5>
+                        <div class="chart-container">
+                            <canvas id="monthlyChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Recent Readings Timeline -->
         <div class="row mb-4">
             <div class="col-md-8">
@@ -448,9 +463,14 @@
             const filteredDailyData = dailyData.filter(d => d.avg_temp !== null && d.avg_humidity !== null);
             console.log('Filtered daily data:', filteredDailyData);
 
+            // Monthly data
+            const filteredMonthlyData = {{ monthly_data_json|safe }};
+            console.log('Filtered monthly data:', filteredMonthlyData);
+
             // Get canvas contexts
             const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
             const dailyCtx = document.getElementById('dailyChart').getContext('2d');
+            const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
 
             // Create hourly chart
             new Chart(hourlyCtx, {
@@ -587,6 +607,59 @@
                         title: {
                             display: true,
                             text: 'Daily Temperature and Humidity Averages'
+                        }
+                    }
+                }
+            });
+
+            // Create monthly chart
+            new Chart(monthlyCtx, {
+                type: 'bar',
+                data: {
+                    labels: filteredMonthlyData.map(d => d.month),
+                    datasets: [
+                        {
+                            label: 'Monthly Avg Temperature (°C)',
+                            data: filteredMonthlyData.map(d => d.avg_temp),
+                            backgroundColor: '#e74c3c',
+                        },
+                        {
+                            label: 'Monthly Avg Humidity (%)',
+                            data: filteredMonthlyData.map(d => d.avg_humidity),
+                            backgroundColor: '#3498db',
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Month'
+                            }
+                        },
+                        y: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Temperature (°C)'
+                            }
+                        },
+                        y1: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Humidity (%)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Monthly Temperature and Humidity Averages'
                         }
                     }
                 }

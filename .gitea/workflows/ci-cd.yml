@@ -196,12 +196,24 @@ jobs:
       shell: pwsh
       run: |
         try {
-          # Remove only preprod-specific images to avoid affecting production
-          docker image rm temperate_dashboard_preprod:latest -f 2>$null
-          docker image rm temperature-daemon:preprod -f 2>$null
-          Write-Output "✅ Cleaned up preprod Docker images"
+          Write-Output "🧹 Performing safe preprod image cleanup..."
+          
+          # Only remove dangling images (not tagged, not used by any container)
+          $danglingImages = docker images -f "dangling=true" -q
+          
+          if ($danglingImages) {
+            Write-Output "Removing dangling images: $danglingImages"
+            docker rmi $danglingImages -f 2>$null
+          } else {
+            Write-Output "No dangling images found"
+          }
+          
+          # Optional: Remove very old preprod build cache (BuildKit cache)
+          docker builder prune -f --filter "until=24h" 2>$null
+          
+          Write-Output "✅ Safe preprod cleanup completed (only removed dangling images)"
         } catch {
-          Write-Output "ℹ️ Preprod image cleanup completed"
+          Write-Output "ℹ️ Preprod cleanup completed with warnings: $($_.Exception.Message)"
         }
 
     - name: Deploy to staging (Windows)
@@ -326,14 +338,24 @@ jobs:
     - name: Clean up production images (Windows)
       shell: pwsh
       run: |
-        Write-Output "🧹 Cleaning up production Docker images..."
+        Write-Output "🧹 Performing safe production image cleanup..."
         try {
-          # Remove only production-specific images to avoid affecting preprod
-          docker image rm temperate_dashboard_production:latest -f 2>$null
-          docker image rm temperature-daemon:production -f 2>$null
-          Write-Output "✅ Production Docker images cleaned up"
+          # Only remove dangling images (not tagged, not used by any container)
+          $danglingImages = docker images -f "dangling=true" -q
+          
+          if ($danglingImages) {
+            Write-Output "Removing dangling images: $danglingImages"
+            docker rmi $danglingImages -f 2>$null
+          } else {
+            Write-Output "No dangling images found"
+          }
+          
+          # Optional: Remove very old production build cache (BuildKit cache)
+          docker builder prune -f --filter "until=48h" 2>$null
+          
+          Write-Output "✅ Safe production cleanup completed (only removed dangling images)"
         } catch {
-          Write-Output "ℹ️ Production image cleanup completed"
+          Write-Output "ℹ️ Production cleanup completed with warnings: $($_.Exception.Message)"
         }
     - name: Deploy to production (Windows)
       shell: pwsh
