@@ -330,6 +330,21 @@
             </div>
         </div>
 
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">
+                            <i class="fas fa-calendar-alt me-2"></i>Monthly Averages
+                        </h5>
+                        <div class="chart-container">
+                            <canvas id="monthlyChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Recent Readings Timeline -->
         <div class="row mb-4">
             <div class="col-md-8">
@@ -451,6 +466,7 @@
             // Get canvas contexts
             const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
             const dailyCtx = document.getElementById('dailyChart').getContext('2d');
+            const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
 
             // Create hourly chart
             new Chart(hourlyCtx, {
