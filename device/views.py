@@ -173,6 +173,35 @@ def device_detail(request, device_name):
     # Get first and last reading dates
     first_reading = Temperature.objects.filter(location=location).order_by('timestamp').first()
 
+    # Monthly data
+    monthly_data = []
+    for i in range(12):
+        month_start = (now - timedelta(days=i*30)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        next_month = (month_start + timedelta(days=32)).replace(day=1)
+        month_end = next_month
+
+        month_avg = Temperature.objects.filter(
+            location=location,
+            timestamp__gte=month_start,
+            timestamp__lt=month_end
+        ).aggregate(
+            avg_temp=models.Avg('temperature'),
+            avg_humidity=models.Avg('humidity'),
+            min_temp=models.Min('temperature'),
+            max_temp=models.Max('temperature'),
+            count=models.Count('id')
+        )
+
+        monthly_data.append({
+            'month': month_start.strftime('%B %Y'),
+            'avg_temp': round(month_avg['avg_temp'], 1) if month_avg['avg_temp'] else None,
+            'avg_humidity': round(month_avg['avg_humidity'], 1) if month_avg['avg_humidity'] else None,
+            'min_temp': round(month_avg['min_temp'], 1) if month_avg['min_temp'] else None,
+            'max_temp': round(month_avg['max_temp'], 1) if month_avg['max_temp'] else None,
+            'count': month_avg['count']
+        })
+    monthly_data.reverse()
+
     context = {
         'device_name': device_name,
         'location': location,
@@ -191,6 +220,8 @@ def device_detail(request, device_name):
         'total_stats': total_stats,
         'first_reading': first_reading,
         'data_age_days': (now - first_reading.timestamp).days if first_reading else 0,
+        'monthly_data': monthly_data,
+        'monthly_data_json': json.dumps(monthly_data),
     }
 
     return render(request, 'device/device.html', context)

@@ -592,6 +592,59 @@
                 }
             });
 
+            // Create monthly chart
+            new Chart(monthlyCtx, {
+                type: 'bar',
+                data: {
+                    labels: filteredMonthlyData.map(d => d.month),
+                    datasets: [
+                        {
+                            label: 'Monthly Avg Temperature (°C)',
+                            data: filteredMonthlyData.map(d => d.avg_temp),
+                            backgroundColor: '#e74c3c',
+                        },
+                        {
+                            label: 'Monthly Avg Humidity (%)',
+                            data: filteredMonthlyData.map(d => d.avg_humidity),
+                            backgroundColor: '#3498db',
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Month'
+                            }
+                        },
+                        y: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Temperature (°C)'
+                            }
+                        },
+                        y1: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Humidity (%)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Monthly Temperature and Humidity Averages'
+                        }
+                    }
+                }
+            });
+
             // Auto-refresh every 5 minutes
             setTimeout(() => {
                 location.reload();
