@@ -1,0 +1,115 @@
+import os
+import csv
+import subprocess
+import sys
+import django
+from django.conf import settings
+from django.utils import dateparse
+from django.utils import timezone
+from pathlib import Path
+
+# Adjust the Python path to include the project directory
+project_dir = Path(__file__).parent.parent  # Point to project root
+sys.path.append(str(project_dir))
+
+
+class DjangoDatabaseService:
+    def __init__(self):
+        # Setup Django
+        os.environ.setdefault("DJANGO_SETTINGS_MODULE", "temperature.settings")
+        django.setup()
+    def save_temperature_humidity(self, timestamp_str: str, location: str, temperature: float, humidity: float):
+        # turn '2025-10-13 06:21:38' into a datetime object
+        timestamp = dateparse.parse_datetime(timestamp_str)
+        if timestamp is None:
+            print(f"Invalid timestamp: {timestamp_str}")
+            return
+        # Make the datetime timezone-aware
+        if timestamp and timezone.is_naive(timestamp):
+            timestamp = timezone.make_aware(timestamp)
+            return
+        from homepage.models import Temperature
+        temp_record = Temperature(
+            timestamp=timestamp,
+            location=location,
+            temperature=temperature,
+            humidity=humidity
+        )
+        temp_record.save()
+
+
+class GoveeService:
+    def __init__(self):
+        # Initialize Django database service
+        self.db_service = DjangoDatabaseService()
+        # govee-h5075 executable path
+        _exe_path = os.path.join("thirdparty", "govee", "govee-h5075.py")
+
+        # Use the current Python executable (from the active virtual environment)
+        python_executable = sys.executable
+
+        _command = [python_executable, _exe_path, "-m"]
+        env = os.environ.copy()
+        env["PYTHONUNBUFFERED"] = "1"  # Ensure unbuffered output
+
+        # Run the govee-h5075 script in background
+        self.run_subprocess(_command, env=env, callback=self.handle_output)
+
+    def run_subprocess(self, command, env=None, callback=None):
+        """Run a subprocess command and optionally process its output with a callback."""
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            env=env,
+            encoding="utf-8"
+        )
+
+        if not process.stdout:
+            raise RuntimeError("Failed to capture subprocess stdout")
+        with process.stdout:
+            for line in iter(process.stdout.readline, ""):
+                line = line.strip()  # Remove whitespace and newlines
+                if line:  # Only process non-empty lines
+                    if callback:
+                        callback(line)
+        process.wait()
+
+    def handle_output(self, line):
+        """Handle output lines from the subprocess."""
+        # Skip header lines and empty lines
+        if not line or "MAC-Address/Alias" in line or "Device name" in line:
+            return
+
+        # Avoid duplicate processing
+        if hasattr(self, '_last_line') and self._last_line == line:
+            return
+        self._last_line = line
+
+        # Process the line
+        # Timestamp             MAC-Address/Alias     Device name   Temperature  Dew point  Temperature  Dew point  Rel. humidity  Abs. humidity  Steam pressure  Battery
+        # 2025-10-13 06:08:47   Landing               GVH5075_496E  20.2°C       11.1°C     68.4°F       52.0°F     55.8%          9.8 g/m³      13.2 mbar       34%
+        parts = list(csv.reader([line], delimiter=' ',
+                     skipinitialspace=True))[0]
+        if len(parts) < 11:
+            print(f"Unexpected line format: {line}")
+            return
+        timestamp = f"{parts[0]} {parts[1]}"
+        alias = parts[2]
+        device_name = parts[3]
+        store_name = device_name if ":" in alias else alias
+        temperature = float(parts[4].replace("°C", "").strip())
+        humidity = float(parts[8].replace("%", "").strip())
+        # Process the extracted values as needed
+
+        print(
+            f"Saving data - Timestamp: {timestamp}, Alias: {store_name}, Temperature: {temperature}°C, Humidity: {humidity}%")
+        # Save the data to the database
+        self.db_service.save_temperature_humidity(
+            timestamp, store_name, temperature, humidity)
+
+
+if __name__ == "__main__":
+    service = GoveeService()
