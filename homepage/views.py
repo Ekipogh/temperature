@@ -32,8 +32,10 @@ def get_active_locations():
         pass
 
     # Fallback to existing locations in Temperature data
-    existing_locations = Temperature.objects.values_list('location', flat=True).distinct()
-    return list(existing_locations) if existing_locations else []
+    # Use set() to ensure uniqueness in case distinct() doesn't work properly
+    existing_locations = Temperature.objects.values_list('location', flat=True)
+    unique_locations = list(set(existing_locations))
+    return unique_locations
 
 
 def get_active_devices():

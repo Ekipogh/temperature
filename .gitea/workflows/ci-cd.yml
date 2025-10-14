@@ -278,9 +278,14 @@ jobs:
 
         # Start Govee service
         try {
+          Write-Output "⛔ Stop any existing Govee daemon jobs..."
+          Get-Job -Name "govee_daemon" -ErrorAction SilentlyContinue | Stop-Job -Force
+          Remove-Job -Name "govee_daemon" -ErrorAction SilentlyContinue
+
           Write-Output "🚀 Starting Govee daemon service..."
-          Start-Job -ScriptBlock { python scripts\govee_daemon.py } -NoNewWindow
+          Start-Job -ScriptBlock { python scripts\govee_daemon.py } -NoNewWindow -Name "govee_daemon"
           Start-Sleep -Seconds 5
+          Write-Output "✅ Govee daemon service started"
         } catch {
           Write-Output "⚠️ Could not start Govee daemon service: $($_.Exception.Message)"
         }
