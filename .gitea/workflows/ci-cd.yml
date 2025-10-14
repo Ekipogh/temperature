@@ -5,6 +5,17 @@ on:
     branches: [ main, master, develop ]
   pull_request:
     branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      deploy_to_production:
+        description: 'Deploy to production environment'
+        required: false
+        default: false
+        type: boolean
+      deployment_reason:
+        description: 'Reason for manual deployment'
+        required: false
+        default: 'Manual deployment'
 
 jobs:
   test:
@@ -197,20 +208,20 @@ jobs:
       run: |
         try {
           Write-Output "🧹 Performing safe preprod image cleanup..."
-          
+
           # Only remove dangling images (not tagged, not used by any container)
           $danglingImages = docker images -f "dangling=true" -q
-          
+
           if ($danglingImages) {
             Write-Output "Removing dangling images: $danglingImages"
             docker rmi $danglingImages -f 2>$null
           } else {
             Write-Output "No dangling images found"
           }
-          
+
           # Optional: Remove very old preprod build cache (BuildKit cache)
           docker builder prune -f --filter "until=24h" 2>$null
-          
+
           Write-Output "✅ Safe preprod cleanup completed (only removed dangling images)"
         } catch {
           Write-Output "ℹ️ Preprod cleanup completed with warnings: $($_.Exception.Message)"
@@ -283,9 +294,30 @@ jobs:
   deploy-production:
     runs-on: [self-hosted, windows]
     needs: [test, security-scan, code-quality]
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    if: |
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_to_production == 'true')
+    environment:
+      name: production
+      url: https://production.temperature-monitor.example.com
 
     steps:
+    - name: Log deployment info
+      shell: pwsh
+      run: |
+        Write-Output "🚀 Starting Production Deployment"
+        Write-Output "📅 Deployment Time: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')"
+        Write-Output "🌿 Branch: ${{ github.ref }}"
+        Write-Output "👤 Triggered by: ${{ github.actor }}"
+
+        if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+          Write-Output "🔧 Deployment Type: Manual"
+          Write-Output "💬 Reason: ${{ github.event.inputs.deployment_reason }}"
+        } else {
+          Write-Output "🔧 Deployment Type: Automatic (main/master branch push)"
+        }
+        Write-Output "---"
+
     - name: Checkout code
       uses: actions/checkout@v4
 
@@ -342,17 +374,17 @@ jobs:
         try {
           # Only remove dangling images (not tagged, not used by any container)
           $danglingImages = docker images -f "dangling=true" -q
-          
+
           if ($danglingImages) {
             Write-Output "Removing dangling images: $danglingImages"
             docker rmi $danglingImages -f 2>$null
           } else {
             Write-Output "No dangling images found"
           }
-          
+
           # Optional: Remove very old production build cache (BuildKit cache)
           docker builder prune -f --filter "until=48h" 2>$null
-          
+
           Write-Output "✅ Safe production cleanup completed (only removed dangling images)"
         } catch {
           Write-Output "ℹ️ Production cleanup completed with warnings: $($_.Exception.Message)"
@@ -407,3 +439,25 @@ jobs:
           Write-Output "ℹ️ Daemon status file check skipped"
         }
         Write-Output "✅ Health check completed"
+
+# DEPLOYMENT STRATEGY:
+#
+# 🔄 AUTOMATIC DEPLOYMENTS:
+# - Preprod: Automatically deploys on feature/* and bugfix/* branches
+# - Production: Requires manual approval even on main/master branches
+#
+# 🔧 MANUAL DEPLOYMENTS:
+# - Use "Run workflow" button in GitHub/Gitea Actions
+# - Select "Deploy to production environment" checkbox
+# - Provide deployment reason
+# - Can deploy from any branch (useful for hotfixes)
+#
+# 🛡️ PRODUCTION PROTECTION:
+# - Environment protection rules require manual approval
+# - Deployment logging shows who, when, and why
+# - Production containers isolated from preprod via project names
+# - Comprehensive health checks before completion
+#
+# 🌐 PORTS:
+# - Production: http://localhost:7000
+# - Preprod: http://localhost:7070
