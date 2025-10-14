@@ -494,10 +494,6 @@ jobs:
             Write-Output "⚠️ Could not check SwitchBot daemon status: $($_.Exception.Message)"
           }
 
-          # Note about Govee service (runs on host, not in container)
-          Write-Output "ℹ️ Govee Bluetooth service runs directly on Windows host for better Bluetooth access"
-          Write-Output "   Start with: start_govee_service.bat"
-          Write-Output "   Test with: test_govee_service.bat"
           # Check SwitchBot daemon status file if accessible
           try {
             $statusFile = docker-compose -f ci/docker-compose.production.yml -p temperature-production exec -T temperature-daemon cat /app/data/daemon_status.json 2>$null
