@@ -197,20 +197,20 @@ jobs:
       run: |
         try {
           Write-Output "🧹 Performing safe preprod image cleanup..."
-          
+
           # Only remove dangling images (not tagged, not used by any container)
           $danglingImages = docker images -f "dangling=true" -q
-          
+
           if ($danglingImages) {
             Write-Output "Removing dangling images: $danglingImages"
             docker rmi $danglingImages -f 2>$null
           } else {
             Write-Output "No dangling images found"
           }
-          
+
           # Optional: Remove very old preprod build cache (BuildKit cache)
           docker builder prune -f --filter "until=24h" 2>$null
-          
+
           Write-Output "✅ Safe preprod cleanup completed (only removed dangling images)"
         } catch {
           Write-Output "ℹ️ Preprod cleanup completed with warnings: $($_.Exception.Message)"
@@ -254,26 +254,52 @@ jobs:
           Write-Output "⚠️ Django app not ready yet: $($_.Exception.Message)"
         }
 
-        # Check daemon container status
+        # Check SwitchBot daemon container status
         try {
           $daemonStatus = docker-compose -f ci/docker-compose.preprod.yml exec -T temperature-daemon ps aux
           if ($daemonStatus -match "temperature_daemon") {
-            Write-Output "✅ Temperature daemon is running"
+            Write-Output "✅ SwitchBot temperature daemon is running"
           } else {
-            Write-Output "⚠️ Temperature daemon status unclear"
+            Write-Output "⚠️ SwitchBot temperature daemon status unclear"
           }
         } catch {
-          Write-Output "⚠️ Could not check daemon status: $($_.Exception.Message)"
+          Write-Output "⚠️ Could not check SwitchBot daemon status: $($_.Exception.Message)"
         }
 
-        # Check daemon status file if accessible
+        # Check SwitchBot daemon status file if accessible
         try {
           $statusFile = docker-compose -f ci/docker-compose.preprod.yml exec -T temperature-daemon cat /app/data/daemon_status.json 2>$null
           if ($statusFile) {
-            Write-Output "✅ Daemon status file accessible"
+            Write-Output "✅ SwitchBot daemon status file accessible"
           }
         } catch {
-          Write-Output "ℹ️ Daemon status file check skipped"
+          Write-Output "ℹ️ SwitchBot daemon status file check skipped"
+        }
+
+        # Start Govee service
+        try {
+          Write-Output "🚀 Starting Govee daemon service..."
+          Start-Job -ScriptBlock { python scripts\govee_daemon.py } -NoNewWindow
+          Start-Sleep -Seconds 5
+        } catch {
+          Write-Output "⚠️ Could not start Govee daemon service: $($_.Exception.Message)"
+        }
+
+        # Check for Govee host service status file
+        if (Test-Path "logs\govee_status.json") {
+          Write-Output "✅ Govee host service status file found"
+          try {
+            $goveeStatus = Get-Content "logs\govee_status.json" | ConvertFrom-Json
+            if ($goveeStatus.running) {
+              Write-Output "✅ Govee host service is running"
+            } else {
+              Write-Output "⚠️ Govee host service appears stopped"
+            }
+          } catch {
+            Write-Output "ℹ️ Could not parse Govee status file"
+          }
+        } else {
+          Write-Output "ℹ️ Govee host service not running (start with: start_govee_service.bat)"
         }
 
         Write-Output "✅ Staging deployment complete on Windows host"
@@ -320,6 +346,7 @@ jobs:
         echo "ENVIRONMENT=production" >> $env:GITHUB_ENV
         echo "DATABASE_PATH=/app/data/db.sqlite3" >> $env:GITHUB_ENV
         echo "DAEMON_STATUS_FILE=/app/data/daemon_status.json" >> $env:GITHUB_ENV
+        echo "GOVEE_STATUS_FILE=/app/data/govee_status.json" >> $env:GITHUB_ENV
         echo "DJANGO_SETTINGS_MODULE=temperature.settings" >> $env:GITHUB_ENV
         echo "DJANGO_DEBUG=False" >> $env:GITHUB_ENV
         echo "DJANGO_ALLOWED_HOSTS=${{ secrets.DJANGO_ALLOWED_HOSTS }}" >> $env:GITHUB_ENV
@@ -342,17 +369,17 @@ jobs:
         try {
           # Only remove dangling images (not tagged, not used by any container)
           $danglingImages = docker images -f "dangling=true" -q
-          
+
           if ($danglingImages) {
             Write-Output "Removing dangling images: $danglingImages"
             docker rmi $danglingImages -f 2>$null
           } else {
             Write-Output "No dangling images found"
           }
-          
+
           # Optional: Remove very old production build cache (BuildKit cache)
           docker builder prune -f --filter "until=48h" 2>$null
-          
+
           Write-Output "✅ Safe production cleanup completed (only removed dangling images)"
         } catch {
           Write-Output "ℹ️ Production cleanup completed with warnings: $($_.Exception.Message)"
@@ -386,24 +413,47 @@ jobs:
         } catch {
           Write-Output "⚠️ Django app not ready yet: $($_.Exception.Message)"
         }
-        # Check daemon container status
+        # Check SwitchBot daemon container status
         try {
           $daemonStatus = docker-compose -f ci/docker-compose.production.yml exec -T temperature-daemon ps aux
           if ($daemonStatus -match "temperature_daemon") {
-            Write-Output "✅ Temperature daemon is running"
+            Write-Output "✅ SwitchBot temperature daemon is running"
           } else {
-            Write-Output "⚠️ Temperature daemon status unclear"
+            Write-Output "⚠️ SwitchBot temperature daemon status unclear"
           }
         } catch {
-          Write-Output "⚠️ Could not check daemon status: $($_.Exception.Message)"
+          Write-Output "⚠️ Could not check SwitchBot daemon status: $($_.Exception.Message)"
         }
-        # Check daemon status file if accessible
+
+        # Note about Govee service (runs on host, not in container)
+        Write-Output "ℹ️ Govee Bluetooth service runs directly on Windows host for better Bluetooth access"
+        Write-Output "   Start with: start_govee_service.bat"
+        Write-Output "   Test with: test_govee_service.bat"
+        # Check SwitchBot daemon status file if accessible
         try {
           $statusFile = docker-compose -f ci/docker-compose.production.yml exec -T temperature-daemon cat /app/data/daemon_status.json 2>$null
           if ($statusFile) {
-            Write-Output "✅ Daemon status file accessible"
+            Write-Output "✅ SwitchBot daemon status file accessible"
           }
         } catch {
-          Write-Output "ℹ️ Daemon status file check skipped"
+          Write-Output "ℹ️ SwitchBot daemon status file check skipped"
+        }
+
+        # Check for Govee host service status file
+        if (Test-Path "logs\govee_status.json") {
+          Write-Output "✅ Govee host service status file found"
+          try {
+            $goveeStatus = Get-Content "logs\govee_status.json" | ConvertFrom-Json
+            if ($goveeStatus.running) {
+              Write-Output "✅ Govee host service is running in production"
+            } else {
+              Write-Output "⚠️ Govee host service appears stopped"
+            }
+          } catch {
+            Write-Output "ℹ️ Could not parse Govee status file"
+          }
+        } else {
+          Write-Output "ℹ️ Govee host service not running"
+          Write-Output "💡 Start Govee service with: start_govee_service.bat"
         }
         Write-Output "✅ Health check completed"

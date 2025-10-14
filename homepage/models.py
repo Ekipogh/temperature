@@ -69,3 +69,61 @@ class Temperature(models.Model):
     def temperature_fahrenheit(self):
         """Convert temperature to Fahrenheit."""
         return (self.temperature * 9 / 5) + 32
+
+
+class Device(models.Model):
+    """Simple device configuration model."""
+
+    DEVICE_TYPES = [
+        ('switchbot', 'SwitchBot Meter'),
+        ('govee', 'Govee Thermometer'),
+        ('manual', 'Manual Entry'),
+    ]
+
+    name = models.CharField(
+        max_length=100,
+        help_text="Friendly name for the device (e.g., 'Living Room Sensor')"
+    )
+    location = models.CharField(
+        max_length=100,
+        help_text="Room/location name (e.g., 'Living Room')"
+    )
+    device_type = models.CharField(
+        max_length=20,
+        choices=DEVICE_TYPES,
+        default='switchbot'
+    )
+    mac_address = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        unique=True,
+        help_text="Device MAC address or identifier (required for SwitchBot/Govee devices)"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether to monitor this device"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['location', 'name']
+
+    def __str__(self):
+        return f"{self.name} ({self.location})"
+
+    def clean(self):
+        """Basic validation."""
+        if self.name:
+            self.name = self.name.strip()
+        if self.location:
+            self.location = self.location.strip().title()
+        if self.mac_address:
+            # Simple MAC address cleanup - remove spaces and convert to uppercase
+            self.mac_address = self.mac_address.replace(' ', '').upper()
+        elif self.device_type in ['switchbot', 'govee']:
+            raise ValidationError("MAC address is required for SwitchBot and Govee devices.")
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)

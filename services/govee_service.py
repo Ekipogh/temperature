@@ -1,16 +1,26 @@
+import json
 import os
 import csv
 import subprocess
 import sys
 import django
-from django.conf import settings
-from django.utils import dateparse
+import logging
 from django.utils import timezone
+from datetime import datetime, timezone as dt_timezone
 from pathlib import Path
 
 # Adjust the Python path to include the project directory
 project_dir = Path(__file__).parent.parent  # Point to project root
 sys.path.append(str(project_dir))
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.FileHandler(
+        "govee_service.log"), logging.StreamHandler()],
+)
+logger = logging.getLogger(__name__)
 
 
 class DjangoDatabaseService:
@@ -18,16 +28,50 @@ class DjangoDatabaseService:
         # Setup Django
         os.environ.setdefault("DJANGO_SETTINGS_MODULE", "temperature.settings")
         django.setup()
+
+    def convert_timestamp(self, timestamp_str: str) -> timezone.datetime:
+        # Parse the timestamp string from the device
+        dt = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
+
+        # FIXED: Properly handle timezone conversion with DST awareness
+        # The Govee device outputs timestamps in local system time
+        # We need to convert them to UTC for database storage
+
+        import zoneinfo
+        from datetime import timedelta
+
+        # Get the system's local timezone (handles DST automatically)
+        # This will be "Europe/London" or similar, which knows about GMT/BST transitions
+        try:
+            # Try to get the system timezone
+            local_tz = datetime.now().astimezone().tzinfo
+
+            # Make the naive datetime timezone-aware in local timezone
+            dt_local = dt.replace(tzinfo=local_tz)
+
+            # Convert to UTC
+            dt_utc = dt_local.astimezone(dt_timezone.utc)
+
+        except Exception:
+            # Fallback: if we can't determine system timezone properly,
+            # use zoneinfo for Europe/London (GMT/BST)
+            try:
+                london_tz = zoneinfo.ZoneInfo("Europe/London")
+                dt_local = dt.replace(tzinfo=london_tz)
+                dt_utc = dt_local.astimezone(dt_timezone.utc)
+            except Exception:
+                # Final fallback: manual DST detection
+                import time
+                is_dst = time.daylight and time.localtime().tm_isdst
+                offset_hours = 1 if is_dst else 0
+                dt_utc_naive = dt - timedelta(hours=offset_hours)
+                dt_utc = dt_utc_naive.replace(tzinfo=dt_timezone.utc)
+
+        return dt_utc
+
     def save_temperature_humidity(self, timestamp_str: str, location: str, temperature: float, humidity: float):
-        # turn '2025-10-13 06:21:38' into a datetime object
-        timestamp = dateparse.parse_datetime(timestamp_str)
-        if timestamp is None:
-            print(f"Invalid timestamp: {timestamp_str}")
-            return
-        # Make the datetime timezone-aware
-        if timestamp and timezone.is_naive(timestamp):
-            timestamp = timezone.make_aware(timestamp)
-            return
+        timestamp = self.convert_timestamp(timestamp_str)
+
         from homepage.models import Temperature
         temp_record = Temperature(
             timestamp=timestamp,
@@ -48,12 +92,18 @@ class GoveeService:
         # Use the current Python executable (from the active virtual environment)
         python_executable = sys.executable
 
-        _command = [python_executable, _exe_path, "-m"]
-        env = os.environ.copy()
-        env["PYTHONUNBUFFERED"] = "1"  # Ensure unbuffered output
+        self._command = [python_executable, _exe_path, "-m"]
+        self._env = os.environ.copy()
+        self._env["PYTHONUNBUFFERED"] = "1"  # Ensure unbuffered output
 
-        # Run the govee-h5075 script in background
-        self.run_subprocess(_command, env=env, callback=self.handle_output)
+        self.status = {
+            "status": "initialized",
+            "last_update": None,
+            "error": None,
+        }
+        self.status_file_path = os.getenv(
+            "GOVEE_STATUS_FILE", "govee_status.json")
+        self.update_status("initialized")
 
     def run_subprocess(self, command, env=None, callback=None):
         """Run a subprocess command and optionally process its output with a callback."""
@@ -75,6 +125,8 @@ class GoveeService:
                 if line:  # Only process non-empty lines
                     if callback:
                         callback(line)
+                        self.status["last_update"] = timezone.now().isoformat()
+                        self.update_status("running")
         process.wait()
 
     def handle_output(self, line):
@@ -110,6 +162,19 @@ class GoveeService:
         self.db_service.save_temperature_humidity(
             timestamp, store_name, temperature, humidity)
 
+    def update_status(self, status: str):
+        self.status["status"] = status
+        with open(self.status_file_path, "w") as f:
+            json.dump(self.status, f)
+
+    def run(self):
+        logger.info("Starting Govee Service...")
+        # Run the govee-h5075 script in background
+        self.run_subprocess(self._command, env=self._env,
+                            callback=self.handle_output)
+        logger.info("Govee Service stopped.")
+        self.update_status("stopped")
+
 
 if __name__ == "__main__":
-    service = GoveeService()
+    GoveeService().run()

@@ -6,6 +6,11 @@
     <title>Temperature Monitor</title>
   </head>
   <body>
+    <div style="margin-bottom: 20px;">
+      <a href="{% url 'home' %}">← Dashboard</a> |
+      <a href="{% url 'manage_devices' %}">Manage Devices</a>
+    </div>
+
     <table border="1">
       <thead>
         <tr>

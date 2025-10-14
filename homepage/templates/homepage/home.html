@@ -73,6 +73,11 @@
                         <p class="text-muted">Real-time monitoring of temperature and humidity</p>
                     </div>
                     <div class="d-flex align-items-center gap-3">
+                        <!-- Device Management Link -->
+                        <a href="{% url 'manage_devices' %}" class="btn btn-outline-secondary btn-sm" title="Manage Devices">
+                            <i class="fas fa-cog me-1"></i>Manage Devices
+                        </a>
+
                         <!-- Daemon Status Indicator -->
                         <div class="d-flex align-items-center">
                             <span class="badge me-2" v-bind:class="{
