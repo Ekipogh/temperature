@@ -462,9 +462,13 @@ jobs:
           Write-Output "Starting Govee service..."
           try {
               # Use simple Start-Process with proper detachment
+              # Set working directory to the source code directory, not the data directory
+              $sourceDir = Get-Location
+              Write-Output "Source directory: $sourceDir"
+              
               $process = Start-Process -FilePath "python.exe" `
                   -ArgumentList "services/govee_service.py" `
-                  -WorkingDirectory "${{ vars.TEMPERATURE_DIR }}" `
+                  -WorkingDirectory $sourceDir `
                   -WindowStyle Hidden `
                   -PassThru `
                   -RedirectStandardOutput $logFile `
