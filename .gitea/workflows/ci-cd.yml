@@ -231,7 +231,7 @@ jobs:
 
             Write-Output "🚀 Starting Govee daemon service..."
             $Env:DATABASE_PATH = "${{ secrets.PREPROD_DB_PATH }}"
-            Start-Job -ScriptBlock { python scripts\govee_daemon.py } -NoNewWindow -Name "govee_daemon"
+            Start-Job -ScriptBlock { python scripts\govee_daemon.py } -Name "govee_daemon"
             Start-Sleep -Seconds 5
             Write-Output "✅ Govee daemon service started"
           } catch {
@@ -376,7 +376,7 @@ jobs:
 
             Write-Output "🚀 Starting Govee daemon service..."
             $Env:DATABASE_PATH = "${{ secrets.PROD_DB_PATH }}"
-            Start-Job -ScriptBlock { python scripts\govee_daemon.py } -NoNewWindow -Name "govee_daemon"
+            Start-Job -ScriptBlock { python scripts\govee_daemon.py } -Name "govee_daemon"
             Start-Sleep -Seconds 5
             Write-Output "✅ Govee daemon service started"
           } catch {
