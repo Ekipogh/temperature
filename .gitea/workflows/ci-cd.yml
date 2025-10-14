@@ -226,7 +226,7 @@ jobs:
           # Start Govee service
           try {
             Write-Output "⛔ Stop any existing Govee daemon jobs..."
-            Get-Job -Name "govee_daemon" -ErrorAction SilentlyContinue | Stop-Job -Force
+            Get-Job -Name "govee_daemon" -ErrorAction SilentlyContinue | Stop-Job
             Remove-Job -Name "govee_daemon" -ErrorAction SilentlyContinue
 
             Write-Output "🚀 Starting Govee daemon service..."
@@ -371,7 +371,7 @@ jobs:
           # Start Govee service
           try {
             Write-Output "⛔ Stop any existing Govee daemon jobs..."
-            Get-Job -Name "govee_daemon" -ErrorAction SilentlyContinue | Stop-Job -Force
+            Get-Job -Name "govee_daemon" -ErrorAction SilentlyContinue | Stop-Job
             Remove-Job -Name "govee_daemon" -ErrorAction SilentlyContinue
 
             Write-Output "🚀 Starting Govee daemon service..."
