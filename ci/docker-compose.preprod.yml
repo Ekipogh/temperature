@@ -1,5 +1,8 @@
 version: '3.8'
 
+# Preprod Environment - Uses explicit project name to avoid conflicts with production
+name: temperature-preprod
+
 services:
   # SwitchBot Temperature Daemon Service
   temperature-daemon:
