@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Temperature, Device
+from .models import Device, Temperature
 
 
 @admin.register(Temperature)

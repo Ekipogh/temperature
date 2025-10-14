@@ -8,16 +8,22 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
 
-from homepage.models import Temperature, Device
+from homepage.models import Device, Temperature
 
 # Optional import for SwitchBot service
 try:
-    from services.switchbot_service import get_location_mac_mapping, get_switchbot_service
+    from services.switchbot_service import (
+        get_location_mac_mapping,
+        get_switchbot_service,
+    )
+
     SWITCHBOT_AVAILABLE = True
 except ImportError:
     SWITCHBOT_AVAILABLE = False
+
     def get_location_mac_mapping():
         return {}
+
     get_switchbot_service = None
 
 
@@ -27,13 +33,13 @@ def get_active_locations():
         # Try to get locations from Device model first
         active_devices = Device.objects.filter(is_active=True)
         if active_devices.exists():
-            return list(active_devices.values_list('location', flat=True).distinct())
-    except:
-        pass
+            return list(active_devices.values_list("location", flat=True).distinct())
+    except Exception as e:
+        print(f"Error fetching active locations: {e}")
 
     # Fallback to existing locations in Temperature data
     # Use set() to ensure uniqueness in case distinct() doesn't work properly
-    existing_locations = Temperature.objects.values_list('location', flat=True)
+    existing_locations = Temperature.objects.values_list("location", flat=True)
     unique_locations = list(set(existing_locations))
     return unique_locations
 
@@ -42,21 +48,25 @@ def get_active_devices():
     """Get active devices with their configurations."""
     try:
         return Device.objects.filter(is_active=True)
-    except:
+    except Exception as e:
+        print(f"Error fetching active devices: {e}")
         return []
 
 
 def get_switchbot_devices():
     """Get active SwitchBot devices for temperature collection."""
     try:
-        switchbot_devices = Device.objects.filter(is_active=True, device_type='switchbot')
+        switchbot_devices = Device.objects.filter(
+            is_active=True, device_type="switchbot"
+        )
         # Return as dict mapping location to MAC address for backward compatibility
         device_map = {}
         for device in switchbot_devices:
             if device.mac_address:
                 device_map[device.location] = device.mac_address
         return device_map
-    except:
+    except Exception as e:
+        print(f"Error fetching SwitchBot devices: {e}")
         # Fallback to old hardcoded mapping if needed
         return get_location_mac_mapping()
 
@@ -330,15 +340,15 @@ def system_status(request):
 
 def manage_devices(request):
     """Device management page for adding, editing, and removing devices."""
-    if request.method == 'POST':
+    if request.method == "POST":
         # Handle form submission for adding/editing devices
-        action = request.POST.get('action')
+        action = request.POST.get("action")
 
-        if action == 'add':
-            name = request.POST.get('name', '').strip()
-            device_type = request.POST.get('device_type', '')
-            mac_address = request.POST.get('mac_address', '').strip()
-            location = request.POST.get('location', '').strip()
+        if action == "add":
+            name = request.POST.get("name", "").strip()
+            device_type = request.POST.get("device_type", "")
+            mac_address = request.POST.get("mac_address", "").strip()
+            location = request.POST.get("location", "").strip()
 
             if name and device_type and location:
                 try:
@@ -347,7 +357,7 @@ def manage_devices(request):
                         device_type=device_type,
                         mac_address=mac_address if mac_address else None,
                         location=location,
-                        is_active=True
+                        is_active=True,
                     )
                     message = f"Device '{name}' added successfully!"
                     message_type = "success"
@@ -358,8 +368,8 @@ def manage_devices(request):
                 message = "Please fill in all required fields."
                 message_type = "error"
 
-        elif action == 'delete':
-            device_id = request.POST.get('device_id')
+        elif action == "delete":
+            device_id = request.POST.get("device_id")
             if device_id:
                 try:
                     device = Device.objects.get(id=device_id)
@@ -377,8 +387,8 @@ def manage_devices(request):
                 message = "No device selected for deletion."
                 message_type = "error"
 
-        elif action == 'toggle':
-            device_id = request.POST.get('device_id')
+        elif action == "toggle":
+            device_id = request.POST.get("device_id")
             if device_id:
                 try:
                     device = Device.objects.get(id=device_id)
@@ -399,20 +409,22 @@ def manage_devices(request):
 
         # Redirect to avoid re-submission on refresh
         from django.contrib import messages
+
         if message_type == "success":
             messages.success(request, message)
         else:
             messages.error(request, message)
 
         from django.shortcuts import redirect
-        return redirect('manage_devices')
+
+        return redirect("manage_devices")
 
     # GET request - display the management page
-    devices = Device.objects.all().order_by('location', 'name')
+    devices = Device.objects.all().order_by("location", "name")
 
     context = {
-        'devices': devices,
-        'device_types': Device.DEVICE_TYPES,
+        "devices": devices,
+        "device_types": Device.DEVICE_TYPES,
     }
 
-    return render(request, 'homepage/manage_devices.html', context)
+    return render(request, "homepage/manage_devices.html", context)

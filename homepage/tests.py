@@ -276,6 +276,7 @@ class FetchNewDataTests(TestCase):
         """Test successful data fetching from SwitchBot devices."""
         # Clear any existing data and create test Device objects
         from homepage.models import Device
+
         Temperature.objects.all().delete()
         Device.objects.all().delete()
 
@@ -288,28 +289,28 @@ class FetchNewDataTests(TestCase):
             location="Living Room",
             device_type="switchbot",
             mac_address="test_mac_1",  # Will become TEST_MAC_1
-            is_active=True
+            is_active=True,
         )
         Device.objects.create(
             name="Bedroom Sensor",
             location="Bedroom",
             device_type="switchbot",
             mac_address="test_mac_2",  # Will become TEST_MAC_2
-            is_active=True
+            is_active=True,
         )
         Device.objects.create(
             name="Office Sensor",
             location="Office",
             device_type="switchbot",
             mac_address="test_mac_3",  # Will become TEST_MAC_3
-            is_active=True
+            is_active=True,
         )
         Device.objects.create(
             name="Outdoor Sensor",
             location="Outdoor",
             device_type="switchbot",
             mac_address="test_mac_4",  # Will become TEST_MAC_4
-            is_active=True
+            is_active=True,
         )
 
         # Verify devices were created correctly (MAC addresses are stored as uppercase)
@@ -493,9 +494,7 @@ class TemperatureIntegrationTests(TestCase):
         data = json.loads(response.content)
 
         # Find the data for our test location
-        test_location_data = [
-            item for item in data if item["location"] == location
-        ]
+        test_location_data = [item for item in data if item["location"] == location]
 
         # Should only have one entry for the location (the latest)
         self.assertEqual(len(test_location_data), 1)

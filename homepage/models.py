@@ -75,39 +75,35 @@ class Device(models.Model):
     """Simple device configuration model."""
 
     DEVICE_TYPES = [
-        ('switchbot', 'SwitchBot Meter'),
-        ('govee', 'Govee Thermometer'),
-        ('manual', 'Manual Entry'),
+        ("switchbot", "SwitchBot Meter"),
+        ("govee", "Govee Thermometer"),
+        ("manual", "Manual Entry"),
     ]
 
     name = models.CharField(
         max_length=100,
-        help_text="Friendly name for the device (e.g., 'Living Room Sensor')"
+        help_text="Friendly name for the device (e.g., 'Living Room Sensor')",
     )
     location = models.CharField(
-        max_length=100,
-        help_text="Room/location name (e.g., 'Living Room')"
+        max_length=100, help_text="Room/location name (e.g., 'Living Room')"
     )
     device_type = models.CharField(
-        max_length=20,
-        choices=DEVICE_TYPES,
-        default='switchbot'
+        max_length=20, choices=DEVICE_TYPES, default="switchbot"
     )
     mac_address = models.CharField(
         max_length=20,
         blank=True,
         null=True,
         unique=True,
-        help_text="Device MAC address or identifier (required for SwitchBot/Govee devices)"
+        help_text="Device MAC address or identifier (required for SwitchBot/Govee devices)",
     )
     is_active = models.BooleanField(
-        default=True,
-        help_text="Whether to monitor this device"
+        default=True, help_text="Whether to monitor this device"
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['location', 'name']
+        ordering = ["location", "name"]
 
     def __str__(self):
         return f"{self.name} ({self.location})"
@@ -120,9 +116,11 @@ class Device(models.Model):
             self.location = self.location.strip().title()
         if self.mac_address:
             # Simple MAC address cleanup - remove spaces and convert to uppercase
-            self.mac_address = self.mac_address.replace(' ', '').upper()
-        elif self.device_type in ['switchbot', 'govee']:
-            raise ValidationError("MAC address is required for SwitchBot and Govee devices.")
+            self.mac_address = self.mac_address.replace(" ", "").upper()
+        elif self.device_type in ["switchbot", "govee"]:
+            raise ValidationError(
+                "MAC address is required for SwitchBot and Govee devices."
+            )
 
     def save(self, *args, **kwargs):
         self.clean()
