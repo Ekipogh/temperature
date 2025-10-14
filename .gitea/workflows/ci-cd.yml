@@ -237,6 +237,45 @@ jobs:
           } catch {
             Write-Output "ℹ️ Preprod cleanup completed with warnings: $($_.Exception.Message)"
           }
+<<<<<<< HEAD
+=======
+
+      - name: Deploy Govee Service
+        shell: pwsh
+        run: |
+          # Start Govee service
+          try {
+            Write-Output "⛔ Stop any existing Govee daemon jobs..."
+            Get-Job -Name "govee_daemon" -ErrorAction SilentlyContinue | Stop-Job
+            Remove-Job -Name "govee_daemon" -ErrorAction SilentlyContinue
+
+            Write-Output "🚀 Starting Govee daemon service..."
+            Set-Environment -Name "DATABASE_PATH" -Value "${secrets.PREPROD_DB_PATH}"
+            Start-Job -ScriptBlock { python scripts\govee_daemon.py } -NoNewWindow -Name "govee_daemon"
+            Start-Sleep -Seconds 5
+            Write-Output "✅ Govee daemon service started"
+          } catch {
+            Write-Output "⚠️ Could not start Govee daemon service: $($_.Exception.Message)"
+          }
+
+          # Check for Govee host service status file
+          if (Test-Path "logs\govee_status.json") {
+            Write-Output "✅ Govee host service status file found"
+            try {
+              $goveeStatus = Get-Content "logs\govee_status.json" | ConvertFrom-Json
+              if ($goveeStatus.running) {
+                Write-Output "✅ Govee host service is running"
+              } else {
+                Write-Output "⚠️ Govee host service appears stopped"
+              }
+            } catch {
+              Write-Output "ℹ️ Could not parse Govee status file"
+            }
+          } else {
+            Write-Output "ℹ️ Govee host service not running (start with: python scripts\govee_daemon.py)"
+          }
+
+>>>>>>> 1103416 (fix: remove force option from Stop-Job for Govee daemon in CI/CD workflow)
       - name: Deploy to staging (Windows)
         shell: pwsh
         run: |
@@ -370,6 +409,43 @@ jobs:
           echo "SWITCHBOT_HUB_IP=${{ secrets.SWITCHBOT_HUB_IP }}" >> $env:GITHUB_ENV
 
           Write-Output "✅ Environment variables set successfully"
+<<<<<<< HEAD
+=======
+      - name: Deploy Govee Service
+        shell: pwsh
+        run: |
+          # Start Govee service
+          try {
+            Write-Output "⛔ Stop any existing Govee daemon jobs..."
+            Get-Job -Name "govee_daemon" -ErrorAction SilentlyContinue | Stop-Job
+            Remove-Job -Name "govee_daemon" -ErrorAction SilentlyContinue
+
+            Write-Output "🚀 Starting Govee daemon service..."
+            Set-Environment -Name "DATABASE_PATH" -Value "${secrets.PROD_DB_PATH}"
+            Start-Job -ScriptBlock { python scripts\govee_daemon.py } -NoNewWindow -Name "govee_daemon"
+            Start-Sleep -Seconds 5
+            Write-Output "✅ Govee daemon service started"
+          } catch {
+            Write-Output "⚠️ Could not start Govee daemon service: $($_.Exception.Message)"
+          }
+
+          # Check for Govee host service status file
+          if (Test-Path "logs\govee_status.json") {
+            Write-Output "✅ Govee host service status file found"
+            try {
+              $goveeStatus = Get-Content "logs\govee_status.json" | ConvertFrom-Json
+              if ($goveeStatus.running) {
+                Write-Output "✅ Govee host service is running"
+              } else {
+                Write-Output "⚠️ Govee host service appears stopped"
+              }
+            } catch {
+              Write-Output "ℹ️ Could not parse Govee status file"
+            }
+          } else {
+            Write-Output "ℹ️ Govee host service not running (start with: python scripts\govee_daemon.py)"
+          }
+>>>>>>> 1103416 (fix: remove force option from Stop-Job for Govee daemon in CI/CD workflow)
       - name: Stop existing production containers (Windows)
         shell: pwsh
         run: |
