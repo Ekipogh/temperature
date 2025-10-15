@@ -175,7 +175,7 @@ jobs:
           $env:TEMPERATURE_INTERVAL = "60"
           $env:ENVIRONMENT = "preprod"
           $env:DATABASE_PATH = "/app/data/db.sqlite3"
-          $env:GOVEE_DJANGO_DB_PATH = "./data/db.sqlite3""
+          $env:GOVEE_DJANGO_DB_PATH = "./data/db.sqlite3"
 
           # Export variables for subsequent steps
           echo "SWITCHBOT_TOKEN=${{ secrets.SWITCHBOT_TOKEN }}" >> $env:GITHUB_ENV
