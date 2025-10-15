@@ -434,8 +434,8 @@ jobs:
             FilePath = "python.exe"
             ArgumentList = "services/govee_service.py"
             PassThru = $true
-            RedirectStandardOutput = ${{ vars.TEMPERATURE_DIR }}\logs\govee_service.log
-            RedirectStandardError = ${{ vars.TEMPERATURE_DIR }}\logs\govee_service_error.log
+            RedirectStandardOutput = "${{ vars.TEMPERATURE_DIR }}\logs\govee_service.log"
+            RedirectStandardError = "${{ vars.TEMPERATURE_DIR }}\logs\govee_service_error.log"
           }
           $process = Start-Process @processOptions
           $process.Id | Out-File $pidFile
