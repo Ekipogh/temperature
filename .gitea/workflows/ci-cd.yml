@@ -250,6 +250,17 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+      - name: Migrate Django DB (Staging)
+        shell: pwsh
+        run: |
+          Write-Output "🔄 Applying database migrations for staging..."
+          python manage.py migrate --settings=temperature.settings
+          if ($LASTEXITCODE -eq 0) {
+            Write-Output "✅ Database migrations applied successfully"
+          } else {
+            Write-Output "❌ Failed to apply database migrations"
+            exit 1
+          }
       - name: Deploy Govee Service Staging
         shell: pwsh
         run: |
