@@ -133,3 +133,4 @@ static_collected/
 secrets.json
 daemon_status.json
 data/govee_status.json
+govee_status.json
