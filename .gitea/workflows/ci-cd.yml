@@ -5,6 +5,17 @@ on:
     branches: [main, master, develop]
   pull_request:
     branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      deploy_to_production:
+        description: "Deploy to production environment"
+        required: false
+        default: false
+        type: boolean
+      deployment_reason:
+        description: "Reason for manual deployment"
+        required: false
+        default: "Manual deployment"
 
 jobs:
   test:
@@ -287,9 +298,30 @@ jobs:
   deploy-production:
     runs-on: [self-hosted, windows]
     needs: [test, security-scan, code-quality]
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    if: |
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_to_production == 'true')
+    environment:
+      name: production
+      url: https://production.temperature-monitor.example.com
 
     steps:
+      - name: Log deployment info
+        shell: pwsh
+        run: |
+          Write-Output "🚀 Starting Production Deployment"
+          Write-Output "📅 Deployment Time: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')"
+          Write-Output "🌿 Branch: ${{ github.ref }}"
+          Write-Output "👤 Triggered by: ${{ github.actor }}"
+
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            Write-Output "🔧 Deployment Type: Manual"
+            Write-Output "💬 Reason: ${{ github.event.inputs.deployment_reason }}"
+          } else {
+            Write-Output "🔧 Deployment Type: Automatic (main/master branch push)"
+          }
+          Write-Output "---"
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
