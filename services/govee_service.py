@@ -134,6 +134,8 @@ class GoveeService:
             env=env,
             encoding="utf-8",
             errors="replace"  # Replace invalid UTF-8 bytes instead of failing
+            encoding="utf-8",
+            errors="replace"  # Replace invalid UTF-8 bytes instead of failing
         )
 
         if not process.stdout:
@@ -172,41 +174,8 @@ class GoveeService:
         alias = parts[2]
         device_name = parts[3]
         store_name = device_name if ":" in alias else alias
-
-        # Robust temperature parsing - extract only numeric part
-        temp_str = parts[4].strip()
-        logger.debug(
-            f"Raw temperature string: '{temp_str}' (bytes: {temp_str.encode('utf-8', errors='replace')})")
-        # Use regex to extract the temperature number (handles any encoding issues)
-        temp_match = re.search(r'(-?\d+\.?\d*)', temp_str)
-        if temp_match:
-            try:
-                temperature = float(temp_match.group(1))
-                logger.debug(f"Parsed temperature: {temperature}°C")
-            except ValueError as e:
-                logger.error(
-                    f"Could not parse temperature from '{parts[4]}': {e}")
-                return
-        else:
-            logger.error(f"No temperature number found in '{parts[4]}'")
-            return
-
-        # Robust humidity parsing - extract only numeric part
-        humidity_str = parts[8].strip()
-        logger.debug(f"Raw humidity string: '{humidity_str}'")
-        # Use regex to extract the humidity number
-        humidity_match = re.search(r'(\d+\.?\d*)', humidity_str)
-        if humidity_match:
-            try:
-                humidity = float(humidity_match.group(1))
-                logger.debug(f"Parsed humidity: {humidity}%")
-            except ValueError as e:
-                logger.error(
-                    f"Could not parse humidity from '{parts[8]}': {e}")
-                return
-        else:
-            logger.error(f"No humidity number found in '{parts[8]}'")
-            return
+        temperature = float(parts[4].replace("°C", "").strip())
+        humidity = float(parts[8].replace("%", "").strip())
         # Process the extracted values as needed
 
         logger.info(
