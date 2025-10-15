@@ -241,7 +241,7 @@ jobs:
 
             Write-Output "🚀 Starting Govee daemon service..."
             $Env:DATABASE_PATH = "${{ secrets.PREPROD_DB_PATH }}"
-            Start-Job -ScriptBlock { python scripts\govee_service.py } -Name "govee_service"
+            Start-Job -ScriptBlock { python services\govee_service.py } -Name "govee_service"
             Start-Sleep -Seconds 5
             Write-Output "✅ Govee daemon service started"
           } catch {
@@ -262,7 +262,7 @@ jobs:
               Write-Output "ℹ️ Could not parse Govee status file"
             }
           } else {
-            Write-Output "ℹ️ Govee host service not running (start with: python scripts\govee_service.py)"
+            Write-Output "ℹ️ Govee host service not running (start with: python services\govee_service.py)"
           }
 
       - name: Deploy to staging (Windows)
@@ -394,7 +394,7 @@ jobs:
 
             Write-Output "🚀 Starting Govee daemon service..."
             $Env:DATABASE_PATH = "${{ secrets.PROD_DB_PATH }}"
-            Start-Job -ScriptBlock { python scripts\govee_service.py } -Name "govee_service"
+            Start-Job -ScriptBlock { python services\govee_service.py } -Name "govee_service"
             Start-Sleep -Seconds 5
             Write-Output "✅ Govee daemon service started"
           } catch {
@@ -415,7 +415,7 @@ jobs:
               Write-Output "ℹ️ Could not parse Govee status file"
             }
           } else {
-            Write-Output "ℹ️ Govee host service not running (start with: python scripts\govee_service.py)"
+            Write-Output "ℹ️ Govee host service not running (start with: python services\govee_service.py)"
           }
       - name: Stop existing production containers (Windows)
         shell: pwsh
