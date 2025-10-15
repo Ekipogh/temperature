@@ -8,8 +8,67 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
 
-from homepage.models import Temperature
-from services.switchbot_service import get_location_mac_mapping, get_switchbot_service
+from homepage.models import Device, Temperature
+
+# Optional import for SwitchBot service
+try:
+    from services.switchbot_service import (
+        get_location_mac_mapping,
+        get_switchbot_service,
+    )
+
+    SWITCHBOT_AVAILABLE = True
+except ImportError:
+    SWITCHBOT_AVAILABLE = False
+
+    def get_location_mac_mapping():
+        return {}
+
+    get_switchbot_service = None
+
+
+def get_active_locations():
+    """Get list of active locations from Device model or fallback to existing data."""
+    try:
+        # Try to get locations from Device model first
+        active_devices = Device.objects.filter(is_active=True)
+        if active_devices.exists():
+            return list(active_devices.values_list("location", flat=True).distinct())
+    except Exception as e:
+        print(f"Error fetching active locations: {e}")
+
+    # Fallback to existing locations in Temperature data
+    # Use set() to ensure uniqueness in case distinct() doesn't work properly
+    existing_locations = Temperature.objects.values_list("location", flat=True)
+    unique_locations = list(set(existing_locations))
+    return unique_locations
+
+
+def get_active_devices():
+    """Get active devices with their configurations."""
+    try:
+        return Device.objects.filter(is_active=True)
+    except Exception as e:
+        print(f"Error fetching active devices: {e}")
+        return []
+
+
+def get_switchbot_devices():
+    """Get active SwitchBot devices for temperature collection."""
+    try:
+        switchbot_devices = Device.objects.filter(
+            is_active=True, device_type="switchbot"
+        )
+        # Return as dict mapping location to MAC address for backward compatibility
+        device_map = {}
+        for device in switchbot_devices:
+            if device.mac_address:
+                device_map[device.location] = device.mac_address
+        return device_map
+    except Exception as e:
+        print(f"Error fetching SwitchBot devices: {e}")
+        # Fallback to old hardcoded mapping if needed
+        return get_location_mac_mapping()
 
 
 def get_daemon_status():
@@ -31,7 +90,7 @@ def get_daemon_status():
         if not status_file.exists():
             return default_status
 
-        with open(status_file, "r") as f:
+        with open(status_file, "r", encoding="utf-8") as f:
             status_data = json.load(f)
 
         # Check if the status is recent (within last 5 minutes)
@@ -81,13 +140,19 @@ def get_daemon_status():
 
 def fetch_new_data():
     """Fetch new temperature data from SwitchBot devices."""
-    switchbot_service = get_switchbot_service()
-    devices = get_location_mac_mapping()
+    # Get active SwitchBot devices from our Device model
+    devices = get_switchbot_devices()
+    switchbot_service = None
+
+    if SWITCHBOT_AVAILABLE and devices and get_switchbot_service:
+        switchbot_service = get_switchbot_service()
 
     for location, mac in devices.items():
         try:
             # Get device status which includes both temperature and humidity
-            device_status = switchbot_service.get_device_status(mac)
+            device_status = None
+            if switchbot_service:
+                device_status = switchbot_service.get_device_status(mac)
             if device_status is None:
                 print(f"Could not retrieve data from device {mac}.")
                 continue
@@ -184,7 +249,7 @@ def temeperature_data(request):
     # unique_locations = set(
     #     Temperature.objects.values_list('location', flat=True))
 
-    unique_locations = ["Living Room", "Bedroom", "Office", "Outdoor"]
+    unique_locations = get_active_locations()
 
     for location in unique_locations:
         latest = (
@@ -271,3 +336,95 @@ def system_status(request):
     }
 
     return JsonResponse(system_status_data, safe=False)
+
+
+def manage_devices(request):
+    """Device management page for adding, editing, and removing devices."""
+    if request.method == "POST":
+        # Handle form submission for adding/editing devices
+        action = request.POST.get("action")
+
+        if action == "add":
+            name = request.POST.get("name", "").strip()
+            device_type = request.POST.get("device_type", "")
+            mac_address = request.POST.get("mac_address", "").strip()
+            location = request.POST.get("location", "").strip()
+
+            if name and device_type and location:
+                try:
+                    Device.objects.create(
+                        name=name,
+                        device_type=device_type,
+                        mac_address=mac_address if mac_address else None,
+                        location=location,
+                        is_active=True,
+                    )
+                    message = f"Device '{name}' added successfully!"
+                    message_type = "success"
+                except Exception as e:
+                    message = f"Error adding device: {str(e)}"
+                    message_type = "error"
+            else:
+                message = "Please fill in all required fields."
+                message_type = "error"
+
+        elif action == "delete":
+            device_id = request.POST.get("device_id")
+            if device_id:
+                try:
+                    device = Device.objects.get(id=device_id)
+                    device_name = device.name
+                    device.delete()
+                    message = f"Device '{device_name}' deleted successfully!"
+                    message_type = "success"
+                except Device.DoesNotExist:
+                    message = "Device not found."
+                    message_type = "error"
+                except Exception as e:
+                    message = f"Error deleting device: {str(e)}"
+                    message_type = "error"
+            else:
+                message = "No device selected for deletion."
+                message_type = "error"
+
+        elif action == "toggle":
+            device_id = request.POST.get("device_id")
+            if device_id:
+                try:
+                    device = Device.objects.get(id=device_id)
+                    device.is_active = not device.is_active
+                    device.save()
+                    status = "activated" if device.is_active else "deactivated"
+                    message = f"Device '{device.name}' {status} successfully!"
+                    message_type = "success"
+                except Device.DoesNotExist:
+                    message = "Device not found."
+                    message_type = "error"
+                except Exception as e:
+                    message = f"Error updating device: {str(e)}"
+                    message_type = "error"
+            else:
+                message = "No device selected."
+                message_type = "error"
+
+        # Redirect to avoid re-submission on refresh
+        from django.contrib import messages
+
+        if message_type == "success":
+            messages.success(request, message)
+        else:
+            messages.error(request, message)
+
+        from django.shortcuts import redirect
+
+        return redirect("manage_devices")
+
+    # GET request - display the management page
+    devices = Device.objects.all().order_by("location", "name")
+
+    context = {
+        "devices": devices,
+        "device_types": Device.DEVICE_TYPES,
+    }
+
+    return render(request, "homepage/manage_devices.html", context)

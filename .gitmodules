@@ -1,0 +1,3 @@
+[submodule "thirdparty/govee"]
+	path = thirdparty/govee
+	url = https://github.com/Ekipogh/govee-h5075-thermo-hygrometer.git

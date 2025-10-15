@@ -145,6 +145,9 @@ class TemperatureViewTests(TestCase):
         self.client = Client()
         self.test_data = []
 
+        # Clear any existing data to ensure test isolation
+        Temperature.objects.all().delete()
+
         # Create test temperature data
         locations = ["Living Room", "Bedroom", "Office", "Outdoor"]
         base_time = timezone.now()
@@ -271,12 +274,56 @@ class FetchNewDataTests(TestCase):
     @patch("homepage.views.get_switchbot_service")
     def test_fetch_new_data_success(self, mock_service_factory):
         """Test successful data fetching from SwitchBot devices."""
-        # Create mock service with test data
+        # Clear any existing data and create test Device objects
+        from homepage.models import Device
+
+        Temperature.objects.all().delete()
+        Device.objects.all().delete()
+
+        # Verify clean state
+        self.assertEqual(Device.objects.count(), 0)
+
+        # Create Device objects for the test (MAC addresses will be converted to uppercase by the model)
+        Device.objects.create(
+            name="Living Room Sensor",
+            location="Living Room",
+            device_type="switchbot",
+            mac_address="test_mac_1",  # Will become TEST_MAC_1
+            is_active=True,
+        )
+        Device.objects.create(
+            name="Bedroom Sensor",
+            location="Bedroom",
+            device_type="switchbot",
+            mac_address="test_mac_2",  # Will become TEST_MAC_2
+            is_active=True,
+        )
+        Device.objects.create(
+            name="Office Sensor",
+            location="Office",
+            device_type="switchbot",
+            mac_address="test_mac_3",  # Will become TEST_MAC_3
+            is_active=True,
+        )
+        Device.objects.create(
+            name="Outdoor Sensor",
+            location="Outdoor",
+            device_type="switchbot",
+            mac_address="test_mac_4",  # Will become TEST_MAC_4
+            is_active=True,
+        )
+
+        # Verify devices were created correctly (MAC addresses are stored as uppercase)
+        self.assertEqual(Device.objects.count(), 4)
+        living_room_device = Device.objects.get(location="Living Room")
+        self.assertEqual(living_room_device.mac_address, "TEST_MAC_1")
+
+        # Create mock service with test data (using uppercase MAC addresses to match Device model)
         mock_service = MockSwitchBotService()
-        mock_service.set_device_data("test_mac_1", 22.5, 65.0)  # Living Room
-        mock_service.set_device_data("test_mac_2", 21.0, 58.0)  # Bedroom
-        mock_service.set_device_data("test_mac_3", 23.5, 62.0)  # Office
-        mock_service.set_device_data("test_mac_4", 15.5, 85.0)  # Outdoor
+        mock_service.set_device_data("TEST_MAC_1", 22.5, 65.0)  # Living Room
+        mock_service.set_device_data("TEST_MAC_2", 21.0, 58.0)  # Bedroom
+        mock_service.set_device_data("TEST_MAC_3", 23.5, 62.0)  # Office
+        mock_service.set_device_data("TEST_MAC_4", 15.5, 85.0)  # Outdoor
         mock_service_factory.return_value = mock_service
 
         # Call the function
@@ -334,7 +381,7 @@ class FetchNewDataTests(TestCase):
         # Create mock service that fails on device status calls
         mock_service = MockSwitchBotService()
         # Set up device to fail for all MACs
-        for mac in ["test_mac_1", "test_mac_2", "test_mac_3", "test_mac_4"]:
+        for mac in ["TEST_MAC_1", "TEST_MAC_2", "TEST_MAC_3", "TEST_MAC_4"]:
             mock_service.set_device_failure(mac, True, "Device communication error")
         mock_service_factory.return_value = mock_service
 
@@ -377,6 +424,8 @@ class TemperatureIntegrationTests(TestCase):
     def setUp(self):
         """Set up integration test data."""
         self.client = Client()
+        # Clear any existing data to ensure test isolation
+        Temperature.objects.all().delete()
 
     def test_full_workflow_without_devices(self):
         """Test the complete workflow without actual device communication."""
@@ -427,36 +476,35 @@ class TemperatureIntegrationTests(TestCase):
         """Test system handles multiple readings for same location correctly."""
         base_time = timezone.now()
 
-        # Create multiple readings for same location
+        # Clear existing data to ensure clean test
+        Temperature.objects.all().delete()
+
+        # Create multiple readings for a known location that will be included in API
+        location = "Living Room"
         for i in range(5):
             Temperature.objects.create(
                 timestamp=base_time - timedelta(minutes=i * 5),
-                location="Test Location",
+                location=location,
                 temperature=20.0 + i,
                 humidity=50.0 + i,
             )
 
-        # API should return only the latest reading
+        # API should return only the latest reading per location
         response = self.client.get(reverse("temperature_data"))
         data = json.loads(response.content)
 
+        # Find the data for our test location
+        test_location_data = [item for item in data if item["location"] == location]
+
         # Should only have one entry for the location (the latest)
-        test_location_data = [
-            item for item in data if item["location"] == "Test Location"
-        ]
-        # Note: Since we hardcoded locations in views, Test Location won't appear in API
-        # Let's test with a known location instead
-        if not test_location_data:
-            # If Test Location not in API, verify the API works with known locations
-            self.assertIsInstance(data, list)
-        else:
-            self.assertEqual(len(test_location_data), 1)
-            # Latest reading
-            self.assertEqual(test_location_data[0]["temperature"], 20.0)
+        self.assertEqual(len(test_location_data), 1)
+        # Latest reading should have the earliest timestamp (most recent)
+        self.assertEqual(test_location_data[0]["temperature"], 20.0)
+        self.assertEqual(test_location_data[0]["humidity"], 50.0)
 
         # Historical data should include all readings
         historical_response = self.client.get(reverse("historical_data"))
         historical_data = json.loads(historical_response.content)
 
-        self.assertIn("Test Location", historical_data)
-        self.assertEqual(len(historical_data["Test Location"]), 5)
+        self.assertIn(location, historical_data)
+        self.assertEqual(len(historical_data[location]), 5)

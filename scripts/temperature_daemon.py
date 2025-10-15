@@ -132,8 +132,8 @@ class TemperatureDaemon:
                 self.last_successful_reading = current_time
 
             # Write status to file
-            with open(self.status_file, "w") as f:
-                json.dump(self.status, f, indent=2)
+            with open(self.status_file, "w", encoding="utf-8") as f:
+                json.dump(self.status, f, indent=2, ensure_ascii=False)
 
         except Exception as e:
             logger.error(f"Failed to update status file: {e}")

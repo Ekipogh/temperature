@@ -23,3 +23,6 @@ flake8
 # Security scanning (for CI/CD)
 bandit
 safety
+
+# Govee Service dependencies
+bleak

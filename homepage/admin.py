@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Temperature
+from .models import Device, Temperature
 
 
 @admin.register(Temperature)
@@ -50,3 +50,6 @@ class TemperatureAdmin(admin.ModelAdmin):
 admin.site.site_header = "Temperature Monitoring Admin"
 admin.site.site_title = "Temperature Admin"
 admin.site.index_title = "Welcome to Temperature Monitoring Administration"
+
+# Register Device model
+admin.site.register(Device)
