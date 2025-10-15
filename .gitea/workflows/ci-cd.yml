@@ -239,10 +239,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      - name: Make migrations (staging)
-        run: |
-          python manage.py makemigrations
-          python manage.py migrate
       - name: Deploy Govee Service Staging
         shell: pwsh
         run: |
@@ -280,7 +276,6 @@ jobs:
             Write-Output "❌ Failed to start Docker containers"
             exit 1
           }
-
       - name: Wait for services to be ready (Windows)
         shell: pwsh
         run: |
@@ -424,6 +419,38 @@ jobs:
           Write-Output "🚀 Deploying to production environment"
           docker-compose -f ci/docker-compose.production.yml -p temperature-production up -d --build
           Write-Output "✅ Deployment to production complete"
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Deploy Govee Service Production
+        shell: pwsh
+        run: |
+          # Start Govee service
+          $pidFile = "${{ vars.TEMPERATURE_DIR }}\govee_service.pid"
+
+          if (Test-Path $pidFile) {
+              $existingPid = Get-Content $pidFile
+              if (Get-Process -Id $existingPid -ErrorAction SilentlyContinue) {
+                  Write-Output "Script already running. Stopping existing instance with PID $existingPid"
+                  Stop-Process -Id $existingPid -Force
+                  exit
+              }
+          }
+          $process = Start-Process -FilePath "python.exe" -ArgumentList "services/govee_service.py" -PassThru
+          $process.Id | Out-File $pidFile
+          Write-Output "Govee service started with PID $($process.Id)"
+          Write-Output "Checking Status"
+          Start-Sleep -Seconds 5
+          if (Get-Process -Id $($process.Id) -ErrorAction SilentlyContinue) {
+              Write-Output "Govee service is running"
+          } else {
+              Write-Output "Govee service is not running"
+          }
       - name: Wait for services to be ready (Windows)
         shell: pwsh
         run: |
@@ -467,36 +494,4 @@ jobs:
             }
           } catch {
             Write-Output "ℹ️ SwitchBot daemon status file check skipped"
-          }
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.11"
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-      - name: Deploy Govee Service Production
-        shell: pwsh
-        run: |
-          # Start Govee service
-          $pidFile = "${{ vars.TEMPERATURE_DIR }}\govee_service.pid"
-
-          if (Test-Path $pidFile) {
-              $existingPid = Get-Content $pidFile
-              if (Get-Process -Id $existingPid -ErrorAction SilentlyContinue) {
-                  Write-Output "Script already running. Stopping existing instance with PID $existingPid"
-                  Stop-Process -Id $existingPid -Force
-                  exit
-              }
-          }
-          $process = Start-Process -FilePath "python.exe" -ArgumentList "services/govee_service.py" -PassThru
-          $process.Id | Out-File $pidFile
-          Write-Output "Govee service started with PID $($process.Id)"
-          Write-Output "Checking Status"
-          Start-Sleep -Seconds 5
-          if (Get-Process -Id $($process.Id) -ErrorAction SilentlyContinue) {
-              Write-Output "Govee service is running"
-          } else {
-              Write-Output "Govee service is not running"
           }
