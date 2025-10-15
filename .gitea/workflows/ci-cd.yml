@@ -431,11 +431,11 @@ jobs:
               }
           }
           $processOptions = @{
-          FilePath = "python.exe"
-          ArgumentList = "services/govee_service.py"
-          PassThru = $true
-          RedirectStandardOutput = ${{ TEMPERATURE_DIR }}\logs\govee_service.log
-          RedirectStandardError = ${{ TEMPERATURE_DIR }}\logs\govee_service_error.log
+            FilePath = "python.exe"
+            ArgumentList = "services/govee_service.py"
+            PassThru = $true
+            RedirectStandardOutput = ${{ TEMPERATURE_DIR }}\logs\govee_service.log
+            RedirectStandardError = ${{ TEMPERATURE_DIR }}\logs\govee_service_error.log
           }
           $process = Start-Process @processOptions
           $process.Id | Out-File $pidFile
