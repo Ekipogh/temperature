@@ -241,48 +241,6 @@ jobs:
             Write-Output "❌ Failed to start Docker containers"
             exit 1
           }
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.11"
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-      - name: Mount Preprod DB
-        run: docker run --rm -v temperature-preprod_temperature_data_preprod:/data -v ${PWD}:/host alpine cp /data/db.sqlite3 /host/data/db.sqlite3
-      - name: Deploy Govee Service Staging
-        shell: pwsh
-        run: |
-          # Start Govee service
-          $pidFile = "${{ vars.TEMPERATURE_DIR }}\govee_service.pid"
-          Write-Output "Using PID file at: $pidFile"
-
-          if (Test-Path $pidFile) {
-              $existingPid = Get-Content $pidFile
-              if (Get-Process -Id $existingPid -ErrorAction SilentlyContinue) {
-                  Write-Output "Script already running. Stopping existing instance with PID $existingPid"
-                  Stop-Process -Id $existingPid -Force
-                  exit
-              }
-          }
-          $process = Start-Process -FilePath "python.exe" -ArgumentList "services/govee_service.py" -PassThru
-          $process.Id | Out-File $pidFile
-          Write-Output "Govee service started with PID $($process.Id)"
-          Write-Output "Checking Status"
-          Start-Sleep -Seconds 5
-          if (Get-Process -Id $($process.Id) -ErrorAction SilentlyContinue) {
-              Write-Output "Govee service is running"
-          } else {
-              Write-Output "Govee service is not running"
-          }
-      - name: Wait for services to be ready (Windows)
-        shell: pwsh
-        run: |
-          Write-Output "⏳ Waiting for services to start..."
-          Start-Sleep -Seconds 30
-          Write-Output "✅ Wait period completed"
 
       - name: Health check (Windows)
         shell: pwsh
@@ -354,6 +312,7 @@ jobs:
           $env:ENVIRONMENT = "production"
           $env:DATABASE_PATH = "/app/data/db.sqlite3"
           $env:DAEMON_STATUS_FILE = "/app/data/daemon_status.json"
+          $env:GOVEE_STATUS_FILE = "%{{ vars.TEMPERATURE_DIR }}\data\govee_status.json"
           # Django production settings
           $env:DJANGO_SETTINGS_MODULE = "temperature.production_settings"
           $env:DJANGO_DEBUG = "False"
@@ -371,7 +330,7 @@ jobs:
           echo "ENVIRONMENT=production" >> $env:GITHUB_ENV
           echo "DATABASE_PATH=/app/data/db.sqlite3" >> $env:GITHUB_ENV
           echo "DAEMON_STATUS_FILE=/app/data/daemon_status.json" >> $env:GITHUB_ENV
-          echo "GOVEE_STATUS_FILE=/app/data/govee_status.json" >> $env:GITHUB_ENV
+          echo "GOVEE_STATUS_FILE=%{{ vars.TEMPERATURE_DIR }}\data\govee_status.json" >> $env:GITHUB_ENV
           echo "DJANGO_SETTINGS_MODULE=temperature.settings" >> $env:GITHUB_ENV
           echo "DJANGO_DEBUG=False" >> $env:GITHUB_ENV
           echo "DJANGO_ALLOWED_HOSTS=${{ secrets.DJANGO_ALLOWED_HOSTS }}" >> $env:GITHUB_ENV
