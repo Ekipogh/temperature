@@ -423,6 +423,14 @@ jobs:
           }
           $process = Start-Process -FilePath "python.exe" -ArgumentList "services/govee_service.py" -PassThru
           $process.Id | Out-File $pidFile
+          Write-Output "Govee service started with PID $($process.Id)"
+          Write-Output "Checking Status"
+          Start-Sleep -Seconds 5
+          if (Get-Process -Id $($process.Id) -ErrorAction SilentlyContinue) {
+              Write-Output "Govee service is running"
+          } else {
+              Write-Output "Govee service is not running"
+          }
       - name: Stop existing production containers (Windows)
         shell: pwsh
         run: |
