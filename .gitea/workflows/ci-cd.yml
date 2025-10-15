@@ -253,6 +253,7 @@ jobs:
         run: |
           # Start Govee service
           $pidFile = "${{ vars.TEMPERATURE_DIRECTORY }}\govee_service.pid"
+          Write-Output "Using PID file at: $pidFile"
 
           if (Test-Path $pidFile) {
               $existingPid = Get-Content $pidFile
