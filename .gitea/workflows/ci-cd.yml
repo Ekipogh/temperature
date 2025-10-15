@@ -252,7 +252,7 @@ jobs:
         shell: pwsh
         run: |
           # Start Govee service
-          $pidFile = "${TEMPERATURE_DIRECTORY}\govee_service.pid"
+          $pidFile = "${{ vars.TEMPERATURE_DIRECTORY }}\govee_service.pid"
 
           if (Test-Path $pidFile) {
               $existingPid = Get-Content $pidFile
@@ -410,7 +410,7 @@ jobs:
         shell: pwsh
         run: |
           # Start Govee service
-          $pidFile = "${TEMPERATURE_DIRECTORY}\govee_service.pid"
+          $pidFile = "${{ vars.TEMPERATURE_DIRECTORY }}\govee_service.pid"
 
           if (Test-Path $pidFile) {
               $existingPid = Get-Content $pidFile
