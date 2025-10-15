@@ -252,36 +252,19 @@ jobs:
         shell: pwsh
         run: |
           # Start Govee service
-          try {
-            Write-Output "⛔ Stop any existing Govee daemon jobs..."
-            Get-Job -Name "govee_service" -ErrorAction SilentlyContinue | Stop-Job
-            Remove-Job -Name "govee_service" -ErrorAction SilentlyContinue
+                    # Start Govee service
+          $pidFile = "C:\Temp\govee_service.pid"
 
-            Write-Output "🚀 Starting Govee daemon service..."
-            $Env:DATABASE_PATH = "${{ secrets.PREPROD_DB_PATH }}"
-            Start-Job -ScriptBlock { python services\govee_service.py } -Name "govee_service"
-            Start-Sleep -Seconds 5
-            Write-Output "✅ Govee daemon service started"
-          } catch {
-            Write-Output "⚠️ Could not start Govee daemon service: $($_.Exception.Message)"
-          }
-
-          # Check for Govee host service status file
-          if (Test-Path "logs\govee_status.json") {
-            Write-Output "✅ Govee host service status file found"
-            try {
-              $goveeStatus = Get-Content "logs\govee_status.json" | ConvertFrom-Json
-              if ($goveeStatus.running) {
-                Write-Output "✅ Govee host service is running"
-              } else {
-                Write-Output "⚠️ Govee host service appears stopped"
+          if (Test-Path $pidFile) {
+              $existingPid = Get-Content $pidFile
+              if (Get-Process -Id $existingPid -ErrorAction SilentlyContinue) {
+                  Write-Output "Script already running. Stopping existing instance with PID $existingPid"
+                  Stop-Process -Id $existingPid -Force
+                  exit
               }
-            } catch {
-              Write-Output "ℹ️ Could not parse Govee status file"
-            }
-          } else {
-            Write-Output "ℹ️ Govee host service not running (start with: python services\govee_service.py)"
           }
+          $process = Start-Process -FilePath "python.exe" -ArgumentList "services/govee_service.py" -PassThru
+          $process.Id | Out-File $pidFile
 
       - name: Deploy to staging (Windows)
         shell: pwsh
