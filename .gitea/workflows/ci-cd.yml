@@ -229,7 +229,18 @@ jobs:
           } catch {
             Write-Output "ℹ️ Preprod cleanup completed with warnings: $($_.Exception.Message)"
           }
+      - name: Deploy to staging (Windows)
+        shell: pwsh
+        run: |
+          Write-Output "🚀 Deploying to staging environment on Windows host machine"
+          docker-compose -f ci/docker-compose.preprod.yml -p temperature-preprod up --build -d
 
+          if ($LASTEXITCODE -eq 0) {
+            Write-Output "✅ Docker containers started successfully"
+          } else {
+            Write-Output "❌ Failed to start Docker containers"
+            exit 1
+          }
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
@@ -263,18 +274,6 @@ jobs:
               Write-Output "Govee service is running"
           } else {
               Write-Output "Govee service is not running"
-          }
-      - name: Deploy to staging (Windows)
-        shell: pwsh
-        run: |
-          Write-Output "🚀 Deploying to staging environment on Windows host machine"
-          docker-compose -f ci/docker-compose.preprod.yml -p temperature-preprod up --build -d
-
-          if ($LASTEXITCODE -eq 0) {
-            Write-Output "✅ Docker containers started successfully"
-          } else {
-            Write-Output "❌ Failed to start Docker containers"
-            exit 1
           }
       - name: Wait for services to be ready (Windows)
         shell: pwsh
