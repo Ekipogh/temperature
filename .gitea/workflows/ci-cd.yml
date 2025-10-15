@@ -165,7 +165,6 @@ jobs:
       contains(github.head_ref, 'feature/') || contains(github.head_ref, 'bugfix/')
     environment:
       name: staging
-      url: https://staging.temperature-monitor.example.com
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
