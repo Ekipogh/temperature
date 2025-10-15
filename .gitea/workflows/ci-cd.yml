@@ -236,12 +236,12 @@ jobs:
           # Start Govee service
           try {
             Write-Output "⛔ Stop any existing Govee daemon jobs..."
-            Get-Job -Name "govee_daemon" -ErrorAction SilentlyContinue | Stop-Job
-            Remove-Job -Name "govee_daemon" -ErrorAction SilentlyContinue
+            Get-Job -Name "govee_service" -ErrorAction SilentlyContinue | Stop-Job
+            Remove-Job -Name "govee_service" -ErrorAction SilentlyContinue
 
             Write-Output "🚀 Starting Govee daemon service..."
             $Env:DATABASE_PATH = "${{ secrets.PREPROD_DB_PATH }}"
-            Start-Job -ScriptBlock { python scripts\govee_daemon.py } -Name "govee_daemon"
+            Start-Job -ScriptBlock { python scripts\govee_service.py } -Name "govee_service"
             Start-Sleep -Seconds 5
             Write-Output "✅ Govee daemon service started"
           } catch {
@@ -262,7 +262,7 @@ jobs:
               Write-Output "ℹ️ Could not parse Govee status file"
             }
           } else {
-            Write-Output "ℹ️ Govee host service not running (start with: python scripts\govee_daemon.py)"
+            Write-Output "ℹ️ Govee host service not running (start with: python scripts\govee_service.py)"
           }
 
       - name: Deploy to staging (Windows)
@@ -389,12 +389,12 @@ jobs:
           # Start Govee service
           try {
             Write-Output "⛔ Stop any existing Govee daemon jobs..."
-            Get-Job -Name "govee_daemon" -ErrorAction SilentlyContinue | Stop-Job
-            Remove-Job -Name "govee_daemon" -ErrorAction SilentlyContinue
+            Get-Job -Name "govee_service" -ErrorAction SilentlyContinue | Stop-Job
+            Remove-Job -Name "govee_service" -ErrorAction SilentlyContinue
 
             Write-Output "🚀 Starting Govee daemon service..."
             $Env:DATABASE_PATH = "${{ secrets.PROD_DB_PATH }}"
-            Start-Job -ScriptBlock { python scripts\govee_daemon.py } -Name "govee_daemon"
+            Start-Job -ScriptBlock { python scripts\govee_service.py } -Name "govee_service"
             Start-Sleep -Seconds 5
             Write-Output "✅ Govee daemon service started"
           } catch {
@@ -415,7 +415,7 @@ jobs:
               Write-Output "ℹ️ Could not parse Govee status file"
             }
           } else {
-            Write-Output "ℹ️ Govee host service not running (start with: python scripts\govee_daemon.py)"
+            Write-Output "ℹ️ Govee host service not running (start with: python scripts\govee_service.py)"
           }
       - name: Stop existing production containers (Windows)
         shell: pwsh
