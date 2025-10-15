@@ -90,7 +90,7 @@ def get_daemon_status():
         if not status_file.exists():
             return default_status
 
-        with open(status_file, "r") as f:
+        with open(status_file, "r", encoding="utf-8") as f:
             status_data = json.load(f)
 
         # Check if the status is recent (within last 5 minutes)

@@ -114,7 +114,8 @@ class GoveeService:
             text=True,
             bufsize=1,
             env=env,
-            encoding="utf-8"
+            encoding="utf-8",
+            errors="replace"  # Replace invalid UTF-8 bytes instead of failing
         )
 
         if not process.stdout:
@@ -153,8 +154,25 @@ class GoveeService:
         alias = parts[2]
         device_name = parts[3]
         store_name = device_name if ":" in alias else alias
-        temperature = float(parts[4].replace("°C", "").strip())
-        humidity = float(parts[8].replace("%", "").strip())
+
+        # Robust temperature parsing - handle various degree symbol encodings
+        temp_str = parts[4].strip()
+        # Remove common degree symbol variations
+        temp_str = temp_str.replace("°C", "").replace("°C", "").replace("C", "").strip()
+        try:
+            temperature = float(temp_str)
+        except ValueError as e:
+            logger.error(f"Could not parse temperature from '{parts[4]}': {e}")
+            return
+
+        # Robust humidity parsing
+        humidity_str = parts[8].strip()
+        humidity_str = humidity_str.replace("%", "").strip()
+        try:
+            humidity = float(humidity_str)
+        except ValueError as e:
+            logger.error(f"Could not parse humidity from '{parts[8]}': {e}")
+            return
         # Process the extracted values as needed
 
         logger.info(
@@ -165,8 +183,8 @@ class GoveeService:
 
     def update_status(self, status: str):
         self.status["status"] = status
-        with open(self.status_file_path, "w") as f:
-            json.dump(self.status, f)
+        with open(self.status_file_path, "w", encoding="utf-8") as f:
+            json.dump(self.status, f, ensure_ascii=False)
 
     def run(self):
         logger.info("Starting Govee Service...")
