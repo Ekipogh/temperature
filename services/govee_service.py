@@ -27,6 +27,8 @@ logger = logging.getLogger(__name__)
 class DjangoDatabaseService:
     def __init__(self):
         # Setup Django
+        database_path = os.getenv("GOVEE_DJANGO_DB_PATH", os.path.join(project_dir, "data", "db.sqlite3"))
+        os.environ["DATABASE_PATH"] = database_path
         os.environ.setdefault("DJANGO_SETTINGS_MODULE", "temperature.settings")
         django.setup()
 

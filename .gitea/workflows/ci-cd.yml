@@ -175,6 +175,7 @@ jobs:
           $env:TEMPERATURE_INTERVAL = "60"
           $env:ENVIRONMENT = "preprod"
           $env:DATABASE_PATH = "/app/data/db.sqlite3"
+          $env:GOVEE_DJANGO_DB_PATH = "./data/db.sqlite3""
 
           # Export variables for subsequent steps
           echo "SWITCHBOT_TOKEN=${{ secrets.SWITCHBOT_TOKEN }}" >> $env:GITHUB_ENV
@@ -186,6 +187,7 @@ jobs:
           echo "TEMPERATURE_INTERVAL=60" >> $env:GITHUB_ENV
           echo "ENVIRONMENT=preprod" >> $env:GITHUB_ENV
           echo "DATABASE_PATH=/app/data/db.sqlite3" >> $env:GITHUB_ENV
+          echo "GOVEE_DJANGO_DB_PATH=./data/db.sqlite3" >> $env:GITHUB_ENV
 
           Write-Output "✅ Environment variables set successfully"
 
@@ -237,8 +239,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
-      - name: Deploy Govee Service
+      - name: Make migrations (staging)
+        run: |
+          python manage.py makemigrations
+          python manage.py migrate
+      - name: Deploy Govee Service Staging
         shell: pwsh
         run: |
           # Start Govee service
@@ -357,6 +362,7 @@ jobs:
           $env:DJANGO_SETTINGS_MODULE = "temperature.production_settings"
           $env:DJANGO_DEBUG = "False"
           $env:DJANGO_ALLOWED_HOSTS = "${{ secrets.DJANGO_ALLOWED_HOSTS }}"
+          $env:GOVEE_DJANGO_DB_PATH = "%{{ vars.TEMPERATURE_DIR }}\data\db.sqlite3"
 
           # Export variables for subsequent steps
           echo "SWITCHBOT_TOKEN=${{ secrets.SWITCHBOT_TOKEN }}" >> $env:GITHUB_ENV
@@ -373,40 +379,9 @@ jobs:
           echo "DJANGO_SETTINGS_MODULE=temperature.settings" >> $env:GITHUB_ENV
           echo "DJANGO_DEBUG=False" >> $env:GITHUB_ENV
           echo "DJANGO_ALLOWED_HOSTS=${{ secrets.DJANGO_ALLOWED_HOSTS }}" >> $env:GITHUB_ENV
+          echo "GOVEE_DJANGO_DB_PATH=%{{ vars.TEMPERATURE_DIR }}\data\db.sqlite3" >> $env:GITHUB_ENV
 
           Write-Output "✅ Environment variables set successfully"
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.11"
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-      - name: Deploy Govee Service
-        shell: pwsh
-        run: |
-          # Start Govee service
-          $pidFile = "${{ vars.TEMPERATURE_DIR }}\govee_service.pid"
-
-          if (Test-Path $pidFile) {
-              $existingPid = Get-Content $pidFile
-              if (Get-Process -Id $existingPid -ErrorAction SilentlyContinue) {
-                  Write-Output "Script already running. Stopping existing instance with PID $existingPid"
-                  Stop-Process -Id $existingPid -Force
-                  exit
-              }
-          }
-          $process = Start-Process -FilePath "python.exe" -ArgumentList "services/govee_service.py" -PassThru
-          $process.Id | Out-File $pidFile
-          Write-Output "Govee service started with PID $($process.Id)"
-          Write-Output "Checking Status"
-          Start-Sleep -Seconds 5
-          if (Get-Process -Id $($process.Id) -ErrorAction SilentlyContinue) {
-              Write-Output "Govee service is running"
-          } else {
-              Write-Output "Govee service is not running"
-          }
       - name: Stop existing production containers (Windows)
         shell: pwsh
         run: |
@@ -493,22 +468,35 @@ jobs:
           } catch {
             Write-Output "ℹ️ SwitchBot daemon status file check skipped"
           }
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Deploy Govee Service Production
+        shell: pwsh
+        run: |
+          # Start Govee service
+          $pidFile = "${{ vars.TEMPERATURE_DIR }}\govee_service.pid"
 
-          # Check for Govee host service status file
-          if (Test-Path "logs\govee_status.json") {
-            Write-Output "✅ Govee host service status file found"
-            try {
-              $goveeStatus = Get-Content "logs\govee_status.json" | ConvertFrom-Json
-              if ($goveeStatus.running) {
-                Write-Output "✅ Govee host service is running in production"
-              } else {
-                Write-Output "⚠️ Govee host service appears stopped"
+          if (Test-Path $pidFile) {
+              $existingPid = Get-Content $pidFile
+              if (Get-Process -Id $existingPid -ErrorAction SilentlyContinue) {
+                  Write-Output "Script already running. Stopping existing instance with PID $existingPid"
+                  Stop-Process -Id $existingPid -Force
+                  exit
               }
-            } catch {
-              Write-Output "ℹ️ Could not parse Govee status file"
-            }
-          } else {
-            Write-Output "ℹ️ Govee host service not running"
-            Write-Output "💡 Start Govee service with: start_govee_service.bat"
           }
-          Write-Output "✅ Health check completed"
+          $process = Start-Process -FilePath "python.exe" -ArgumentList "services/govee_service.py" -PassThru
+          $process.Id | Out-File $pidFile
+          Write-Output "Govee service started with PID $($process.Id)"
+          Write-Output "Checking Status"
+          Start-Sleep -Seconds 5
+          if (Get-Process -Id $($process.Id) -ErrorAction SilentlyContinue) {
+              Write-Output "Govee service is running"
+          } else {
+              Write-Output "Govee service is not running"
+          }
