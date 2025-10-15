@@ -118,7 +118,8 @@ class GoveeService:
         )
 
         if not process.stdout:
-            raise RuntimeError("Failed to capture subprocess stdout")
+            logger.error("Failed to capture subprocess output.")
+            return
         with process.stdout:
             for line in iter(process.stdout.readline, ""):
                 line = line.strip()  # Remove whitespace and newlines
@@ -146,7 +147,7 @@ class GoveeService:
         parts = list(csv.reader([line], delimiter=' ',
                      skipinitialspace=True))[0]
         if len(parts) < 11:
-            print(f"Unexpected line format: {line}")
+            logger.error(f"Unexpected line format: {line}")
             return
         timestamp = f"{parts[0]} {parts[1]}"
         alias = parts[2]
@@ -156,7 +157,7 @@ class GoveeService:
         humidity = float(parts[8].replace("%", "").strip())
         # Process the extracted values as needed
 
-        print(
+        logger.info(
             f"Saving data - Timestamp: {timestamp}, Alias: {store_name}, Temperature: {temperature}°C, Humidity: {humidity}%")
         # Save the data to the database
         self.db_service.save_temperature_humidity(
@@ -170,8 +171,11 @@ class GoveeService:
     def run(self):
         logger.info("Starting Govee Service...")
         # Run the govee-h5075 script in background
-        self.run_subprocess(self._command, env=self._env,
-                            callback=self.handle_output)
+        try:
+            self.run_subprocess(self._command, env=self._env,
+                                callback=self.handle_output)
+        except Exception as e:
+            logger.error(f"Error occurred while running Govee Service: {e}")
         logger.info("Govee Service stopped.")
         self.update_status("stopped")
 
