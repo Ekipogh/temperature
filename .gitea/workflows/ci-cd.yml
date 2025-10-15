@@ -237,6 +237,52 @@ jobs:
           } catch {
             Write-Output "ℹ️ Preprod cleanup completed with warnings: $($_.Exception.Message)"
           }
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Deploy Govee Service
+        shell: pwsh
+        run: |
+          # Start Govee service
+          try {
+            Write-Output "⛔ Stop any existing Govee daemon jobs..."
+            Get-Job -Name "govee_service" -ErrorAction SilentlyContinue | Stop-Job
+            Remove-Job -Name "govee_service" -ErrorAction SilentlyContinue
+
+            Write-Output "🚀 Starting Govee daemon service..."
+            $Env:DATABASE_PATH = "${{ secrets.PREPROD_DB_PATH }}"
+            Start-Job -ScriptBlock { python services\govee_service.py } -Name "govee_service"
+            Start-Sleep -Seconds 5
+            Write-Output "✅ Govee daemon service started"
+          } catch {
+            Write-Output "⚠️ Could not start Govee daemon service: $($_.Exception.Message)"
+          }
+
+          # Check for Govee host service status file
+          if (Test-Path "logs\govee_status.json") {
+            Write-Output "✅ Govee host service status file found"
+            try {
+              $goveeStatus = Get-Content "logs\govee_status.json" | ConvertFrom-Json
+              if ($goveeStatus.running) {
+                Write-Output "✅ Govee host service is running"
+              } else {
+                Write-Output "⚠️ Govee host service appears stopped"
+              }
+            } catch {
+              Write-Output "ℹ️ Could not parse Govee status file"
+            }
+          } else {
+            Write-Output "ℹ️ Govee host service not running (start with: python services\govee_service.py)"
+          }
+
       - name: Deploy to staging (Windows)
         shell: pwsh
         run: |
@@ -370,6 +416,48 @@ jobs:
           echo "SWITCHBOT_HUB_IP=${{ secrets.SWITCHBOT_HUB_IP }}" >> $env:GITHUB_ENV
 
           Write-Output "✅ Environment variables set successfully"
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Deploy Govee Service
+        shell: pwsh
+        run: |
+          # Start Govee service
+          try {
+            Write-Output "⛔ Stop any existing Govee daemon jobs..."
+            Get-Job -Name "govee_service" -ErrorAction SilentlyContinue | Stop-Job
+            Remove-Job -Name "govee_service" -ErrorAction SilentlyContinue
+
+            Write-Output "🚀 Starting Govee daemon service..."
+            $Env:DATABASE_PATH = "${{ secrets.PROD_DB_PATH }}"
+            Start-Job -ScriptBlock { python services\govee_service.py } -Name "govee_service"
+            Start-Sleep -Seconds 5
+            Write-Output "✅ Govee daemon service started"
+          } catch {
+            Write-Output "⚠️ Could not start Govee daemon service: $($_.Exception.Message)"
+          }
+
+          # Check for Govee host service status file
+          if (Test-Path "logs\govee_status.json") {
+            Write-Output "✅ Govee host service status file found"
+            try {
+              $goveeStatus = Get-Content "logs\govee_status.json" | ConvertFrom-Json
+              if ($goveeStatus.running) {
+                Write-Output "✅ Govee host service is running"
+              } else {
+                Write-Output "⚠️ Govee host service appears stopped"
+              }
+            } catch {
+              Write-Output "ℹ️ Could not parse Govee status file"
+            }
+          } else {
+            Write-Output "ℹ️ Govee host service not running (start with: python services\govee_service.py)"
+          }
       - name: Stop existing production containers (Windows)
         shell: pwsh
         run: |
