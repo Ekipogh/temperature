@@ -110,7 +110,7 @@
         </div>
 
         <!-- Current Temperature Cards -->
-        <div class="row stats-row" v-if="!loading && !error">
+        <div class="row stats-row justify-content-center" v-if="!loading && !error">
             <div class="col-lg-3 col-md-6 mb-4" v-for="location in currentTemperatures" :key="location.pk">
                 <div class="card temperature-card h-100" :class="getCardClass(location.location)">
                     <div class="card-body text-center">
@@ -218,6 +218,7 @@
                 let humidityChart = null;
                 const reload_interval = 5 * 60 * 1000; // 5 minutes
                 const reload_counter = ref(reload_interval);
+                let legendSelection = {};
 
                 const hasHumidityData = computed(() => {
                     const result = Object.values(historicalData.value).some(locationData =>
@@ -359,6 +360,18 @@
                                 plugins: {
                                     legend: {
                                         position: 'top',
+                                        onClick: (e, legendItem, legend) => {
+                                            // default behavior
+                                            Chart.defaults.plugins.legend.onClick.call(this, e, legendItem, legend);
+                                            // Toggle visibility of corresponding humidity dataset
+                                            // when clicking on temperature legend item
+                                            const index = legendItem.datasetIndex;
+                                            if (humidityChart && humidityChart.data.datasets[index]) {
+                                                const humidityMeta = humidityChart.getDatasetMeta(index);
+                                                humidityMeta.hidden = !humidityMeta.hidden;
+                                                humidityChart.update();
+                                            }
+                                        }
                                     },
                                     tooltip: {
                                         mode: 'index',
@@ -452,7 +465,7 @@
                             },
                             plugins: {
                                 legend: {
-                                    position: 'top',
+                                    display: false
                                 },
                                 tooltip: {
                                     mode: 'index',
@@ -502,8 +515,8 @@
 
                         // Wait for DOM update before creating charts
                         await new Promise(resolve => setTimeout(resolve, 200));
-                        createTemperatureChart();
                         createHumidityChart();
+                        createTemperatureChart();
 
                         // Reset the auto-refresh counter
                         reload_counter.value = reload_interval;
@@ -524,9 +537,9 @@
                             fetchDaemonStatus()
                         ]);
 
-                        // Update charts without DOM delay (they already exist)
-                        createTemperatureChart();
-                        createHumidityChart();
+                        // Update charts with new data
+                        createOrUpdateHumidityChart();
+                        createOrUpdateTemperatureChart();
 
                         console.log('Auto-refresh completed at', new Date().toLocaleTimeString());
                     } catch (err) {
@@ -538,8 +551,8 @@
                 const changeTimeRange = async (hours) => {
                     selectedTimeRange.value = hours;
                     await fetchHistoricalData();
-                    createTemperatureChart();
                     createHumidityChart();
+                    createTemperatureChart();
                 };
 
                 const updateRefreshCounter = () => {
@@ -571,6 +584,82 @@
                         minute: '2-digit',
                         hour12: false
                     });
+                };
+
+                const createOrUpdateTemperatureChart = () => {
+                    if (!temperatureChart) {
+                        createTemperatureChart();
+                        return;
+                    }
+
+                    // Check if we need to recreate due to location changes
+                    const currentLocations = Object.keys(historicalData.value);
+                    const chartLocations = temperatureChart.data.datasets.map(ds => ds.label);
+
+                    if (currentLocations.length !== chartLocations.length ||
+                        !currentLocations.every(loc => chartLocations.includes(loc))) {
+                        console.log('Location count or names changed, recreating temperature chart');
+                        createTemperatureChart();
+                        return;
+                    }
+
+                    // Update existing datasets
+                    Object.entries(historicalData.value).forEach(([location, locationData], index) => {
+                        const dataset = temperatureChart.data.datasets[index];
+                        if (dataset && dataset.label === location) {
+                            dataset.data = locationData.map(entry => ({
+                                x: new Date(entry.timestamp),
+                                y: entry.temperature
+                            }));
+                        }
+                    });
+
+                    temperatureChart.update();
+                };
+
+                const createOrUpdateHumidityChart = () => {
+                    if (!hasHumidityData.value) {
+                        if (humidityChart) {
+                            humidityChart.destroy();
+                            humidityChart = null;
+                        }
+                        return;
+                    }
+
+                    if (!humidityChart) {
+                        createHumidityChart();
+                        return;
+                    }
+
+                    // Check if we need to recreate due to location changes
+                    const currentHumidityLocations = Object.entries(historicalData.value)
+                        .filter(([, data]) => data.some(entry => entry.humidity !== null))
+                        .map(([location]) => location);
+                    const chartLocations = humidityChart.data.datasets.map(ds => ds.label);
+
+                    if (currentHumidityLocations.length !== chartLocations.length ||
+                        !currentHumidityLocations.every(loc => chartLocations.includes(loc))) {
+                        console.log('Humidity location count or names changed, recreating humidity chart');
+                        createHumidityChart();
+                        return;
+                    }
+
+                    // Update existing datasets
+                    Object.entries(historicalData.value)
+                        .filter(([, data]) => data.some(entry => entry.humidity !== null))
+                        .forEach(([location, locationData], index) => {
+                            const dataset = humidityChart.data.datasets[index];
+                            if (dataset && dataset.label === location) {
+                                dataset.data = locationData
+                                    .filter(entry => entry.humidity !== null)
+                                    .map(entry => ({
+                                        x: new Date(entry.timestamp),
+                                        y: entry.humidity
+                                    }));
+                            }
+                        });
+
+                    humidityChart.update();
                 };
 
                 return {

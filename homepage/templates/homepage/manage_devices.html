@@ -303,6 +303,10 @@
                 <h2>Add New Device</h2>
                 <form method="post">
                     {% csrf_token %}
+                    <!-- Debug: CSRF token value -->
+                    {% comment %}
+                    Debug info: {{ csrf_token }}
+                    {% endcomment %}
                     <input type="hidden" name="action" value="add">
 
                     <div class="form-grid">

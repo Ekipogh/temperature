@@ -95,7 +95,7 @@ class GoveeService:
         # Use the current Python executable (from the active virtual environment)
         python_executable = sys.executable
 
-        self._command = [python_executable, _exe_path, "-m"]
+        self._command = [python_executable, _exe_path, "-m", "--interval", "300"]
         self._env = os.environ.copy()
         self._env["PYTHONUNBUFFERED"] = "1"  # Ensure unbuffered output
 
