@@ -27,7 +27,8 @@ logger = logging.getLogger(__name__)
 class DjangoDatabaseService:
     def __init__(self):
         # Setup Django
-        database_path = os.getenv("GOVEE_DJANGO_DB_PATH", os.path.join(project_dir, "data", "db.sqlite3"))
+        database_path = os.getenv("GOVEE_DJANGO_DB_PATH", os.path.join(
+            project_dir, "data", "db.sqlite3"))
         os.environ["DATABASE_PATH"] = database_path
         os.environ.setdefault("DJANGO_SETTINGS_MODULE", "temperature.settings")
         django.setup()
@@ -92,10 +93,20 @@ class GoveeService:
         # govee-h5075 executable path
         _exe_path = os.path.join("thirdparty", "govee", "govee-h5075.py")
 
+        self.interval = 300  # Default interval in seconds
+        interval_env = os.getenv("GOVEE_POLL_INTERVAL")
+        if interval_env:
+            try:
+                self.interval = int(interval_env)
+            except ValueError:
+                logging.error(
+                    f"Invalid interval value: {interval_env}. Using default: {self.interval} seconds.")
+
         # Use the current Python executable (from the active virtual environment)
         python_executable = sys.executable
 
-        self._command = [python_executable, _exe_path, "-m", "--interval", "300"]
+        self._command = [python_executable, _exe_path,
+                         "-m", "--interval", str(self.interval)]
         self._env = os.environ.copy()
         self._env["PYTHONUNBUFFERED"] = "1"  # Ensure unbuffered output
 
@@ -137,7 +148,7 @@ class GoveeService:
     def handle_output(self, line):
         """Handle output lines from the subprocess."""
         # Skip header lines and empty lines
-        if not line or "MAC-Address/Alias" in line or "Device name" in line:
+        if not line or "MAC-Address/Alias" in line or "Starting continuous" in line or "Press Ctrl+C" in line or len(line) == 0:
             return
 
         # Avoid duplicate processing
@@ -160,7 +171,8 @@ class GoveeService:
 
         # Robust temperature parsing - extract only numeric part
         temp_str = parts[4].strip()
-        logger.debug(f"Raw temperature string: '{temp_str}' (bytes: {temp_str.encode('utf-8', errors='replace')})")
+        logger.debug(
+            f"Raw temperature string: '{temp_str}' (bytes: {temp_str.encode('utf-8', errors='replace')})")
         # Use regex to extract the temperature number (handles any encoding issues)
         temp_match = re.search(r'(-?\d+\.?\d*)', temp_str)
         if temp_match:
@@ -168,7 +180,8 @@ class GoveeService:
                 temperature = float(temp_match.group(1))
                 logger.debug(f"Parsed temperature: {temperature}°C")
             except ValueError as e:
-                logger.error(f"Could not parse temperature from '{parts[4]}': {e}")
+                logger.error(
+                    f"Could not parse temperature from '{parts[4]}': {e}")
                 return
         else:
             logger.error(f"No temperature number found in '{parts[4]}'")
@@ -184,7 +197,8 @@ class GoveeService:
                 humidity = float(humidity_match.group(1))
                 logger.debug(f"Parsed humidity: {humidity}%")
             except ValueError as e:
-                logger.error(f"Could not parse humidity from '{parts[8]}': {e}")
+                logger.error(
+                    f"Could not parse humidity from '{parts[8]}': {e}")
                 return
         else:
             logger.error(f"No humidity number found in '{parts[8]}'")
@@ -206,6 +220,7 @@ class GoveeService:
         logger.info("Starting Govee Service...")
         # Run the govee-h5075 script in background
         try:
+            logging.info(f"Polling govee devices every {self.interval} seconds")
             self.run_subprocess(self._command, env=self._env,
                                 callback=self.handle_output)
         except Exception as e:

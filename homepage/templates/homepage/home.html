@@ -111,7 +111,7 @@
 
         <!-- Current Temperature Cards -->
         <div class="row stats-row justify-content-center" v-if="!loading && !error">
-            <div class="col-lg-3 col-md-6 mb-4" v-for="location in currentTemperatures" :key="location.pk">
+            <div class="col mb-2" v-for="location in currentTemperatures" :key="location.pk">
                 <div class="card temperature-card h-100" :class="getCardClass(location.location)">
                     <div class="card-body text-center">
                         <div class="location-name mb-2">
