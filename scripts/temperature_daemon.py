@@ -8,7 +8,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Dict, Union
+from typing import Dict, Optional, Union
 
 # Load environment variables from .env file
 from dotenv import load_dotenv
@@ -90,8 +90,8 @@ class TemperatureDaemon:
                 "hub_ping": None,
                 "api_connectivity": None,
                 "overall_healthy": None,
-                "last_check": None
-            }
+                "last_check": None,
+            },
         }
 
         # Setup signal handlers for graceful shutdown
@@ -114,19 +114,19 @@ class TemperatureDaemon:
 
         try:
             # Use ping command appropriate for the OS
-            if os.name == 'nt':  # Windows
+            if os.name == "nt":  # Windows
                 result = subprocess.run(
                     ["ping", "-n", "1", "-w", "3000", hub_ip],  # 3 second timeout
                     capture_output=True,
                     text=True,
-                    timeout=5
+                    timeout=5,
                 )
             else:  # Linux/Mac
                 result = subprocess.run(
                     ["ping", "-c", "1", "-W", "3", hub_ip],  # 3 second timeout
                     capture_output=True,
                     text=True,
-                    timeout=5
+                    timeout=5,
                 )
 
             is_reachable = result.returncode == 0
@@ -188,7 +188,7 @@ class TemperatureDaemon:
         results: Dict[str, Union[bool, None]] = {
             "hub_ping": False,
             "api_connectivity": False,
-            "overall_healthy": False
+            "overall_healthy": False,
         }
 
         try:
@@ -209,7 +209,9 @@ class TemperatureDaemon:
                 results["overall_healthy"] = results["api_connectivity"]
             else:
                 # Both ping and API should be working for full health
-                results["overall_healthy"] = results["hub_ping"] and results["api_connectivity"]
+                results["overall_healthy"] = (
+                    results["hub_ping"] and results["api_connectivity"]
+                )
 
             # Log connectivity status
             if results["overall_healthy"]:
@@ -220,7 +222,9 @@ class TemperatureDaemon:
                     status_msg.append("Hub unreachable")
                 if not results["api_connectivity"]:
                     status_msg.append("API unresponsive")
-                logger.warning(f"SwitchBot connectivity issues: {', '.join(status_msg)}")
+                logger.warning(
+                    f"SwitchBot connectivity issues: {', '.join(status_msg)}"
+                )
 
             return results
 
@@ -544,7 +548,9 @@ class TemperatureDaemon:
 
                     # Update status with connectivity information
                     self.status["hub_connectivity"].update(connectivity_results)
-                    self.status["hub_connectivity"]["last_check"] = datetime.now().isoformat()
+                    self.status["hub_connectivity"][
+                        "last_check"
+                    ] = datetime.now().isoformat()
 
                     # Log connectivity status
                     if not connectivity_results["overall_healthy"]:
