@@ -1,0 +1,10 @@
+# Add this to your .env file to enable SwitchBot hub connectivity monitoring
+
+# SwitchBot Hub IP Address on your local network
+# You can find this in your router's DHCP client list or by checking the SwitchBot app
+# Example: SWITCHBOT_HUB_IP=192.168.1.100
+SWITCHBOT_HUB_IP=
+
+# Optional: Connectivity check interval (every N daemon iterations)
+# Default is every 5 iterations. Set to 1 to check every iteration.
+CONNECTIVITY_CHECK_INTERVAL=5

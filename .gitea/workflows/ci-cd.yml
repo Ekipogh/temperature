@@ -427,7 +427,6 @@ jobs:
               if (Get-Process -Id $existingPid -ErrorAction SilentlyContinue) {
                   Write-Output "Script already running. Stopping existing instance with PID $existingPid"
                   Stop-Process -Id $existingPid -Force
-                  exit
               }
           }
           $processOptions = @{

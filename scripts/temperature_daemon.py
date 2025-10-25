@@ -3,11 +3,12 @@ import logging
 import os
 import random
 import signal
+import subprocess
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Union
 
 # Load environment variables from .env file
 from dotenv import load_dotenv
@@ -85,6 +86,12 @@ class TemperatureDaemon:
             "last_rate_limit_time": None,
             "retry_interval": None,
             "update_interval": self.interval,
+            "hub_connectivity": {
+                "hub_ping": None,
+                "api_connectivity": None,
+                "overall_healthy": None,
+                "last_check": None
+            }
         }
 
         # Setup signal handlers for graceful shutdown
@@ -98,6 +105,128 @@ class TemperatureDaemon:
         self._init_devices()
 
         logger.info(f"TemperatureDaemon initialized with {len(self.devices)} devices")
+
+    def _check_hub_connectivity(self, hub_ip: Optional[str] = None) -> bool:
+        """Check if SwitchBot hub is reachable on local network via ping."""
+        # Default hub IP - you should configure this for your network
+        if not hub_ip:
+            hub_ip = os.getenv("SWITCHBOT_HUB_IP", "192.168.1.100")  # Configure this
+
+        try:
+            # Use ping command appropriate for the OS
+            if os.name == 'nt':  # Windows
+                result = subprocess.run(
+                    ["ping", "-n", "1", "-w", "3000", hub_ip],  # 3 second timeout
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+            else:  # Linux/Mac
+                result = subprocess.run(
+                    ["ping", "-c", "1", "-W", "3", hub_ip],  # 3 second timeout
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+
+            is_reachable = result.returncode == 0
+
+            if is_reachable:
+                logger.debug(f"SwitchBot hub at {hub_ip} is reachable")
+            else:
+                logger.warning(f"SwitchBot hub at {hub_ip} is not reachable")
+
+            return is_reachable
+
+        except subprocess.TimeoutExpired:
+            logger.warning(f"Ping to SwitchBot hub {hub_ip} timed out")
+            return False
+        except Exception as e:
+            logger.error(f"Error pinging SwitchBot hub {hub_ip}: {e}")
+            return False
+
+    def _check_hub_api_connectivity(self) -> bool:
+        """Check SwitchBot API connectivity by making a simple API call."""
+        try:
+            # Try to get status from the first available device - lightweight check
+            if not self.devices:
+                logger.warning("No devices configured for API connectivity check")
+                return False
+
+            test_device = next(iter(self.devices.keys()))
+            mac_address = self.devices[test_device]
+
+            # Make a quick status call to test API connectivity
+            device = self.switchbot_service.connect(mac_address)
+            status = device.status()
+
+            if status is not None:
+                logger.debug(f"SwitchBot API is responsive (tested with {test_device})")
+                return True
+            else:
+                logger.warning("SwitchBot API returned no status")
+                return False
+
+        except Exception as e:
+            error_str = str(e).lower()
+
+            if "429" in str(e) or "rate limit" in error_str:
+                logger.warning("SwitchBot API rate limited (API is working)")
+                return True  # Rate limit means API is working, just restricted
+            elif "401" in str(e) or "authentication" in error_str:
+                logger.warning("SwitchBot API authentication issue")
+                return True  # Auth issue means API is reachable
+            elif "timeout" in error_str or "connection" in error_str:
+                logger.error(f"SwitchBot API connectivity issue: {e}")
+                return False
+            else:
+                logger.error(f"Unknown SwitchBot API error: {e}")
+                return False
+
+    def _perform_connectivity_checks(self) -> Dict[str, Union[bool, None]]:
+        """Perform comprehensive connectivity checks for SwitchBot hub and API."""
+        results: Dict[str, Union[bool, None]] = {
+            "hub_ping": False,
+            "api_connectivity": False,
+            "overall_healthy": False
+        }
+
+        try:
+            # Check hub network connectivity
+            hub_ip = os.getenv("SWITCHBOT_HUB_IP")
+            if hub_ip:
+                results["hub_ping"] = self._check_hub_connectivity(hub_ip)
+            else:
+                logger.info("SWITCHBOT_HUB_IP not configured, skipping ping check")
+                results["hub_ping"] = None  # Unknown state
+
+            # Check API connectivity
+            results["api_connectivity"] = self._check_hub_api_connectivity()
+
+            # Overall health assessment
+            if results["hub_ping"] is None:
+                # If ping check is not configured, base health on API only
+                results["overall_healthy"] = results["api_connectivity"]
+            else:
+                # Both ping and API should be working for full health
+                results["overall_healthy"] = results["hub_ping"] and results["api_connectivity"]
+
+            # Log connectivity status
+            if results["overall_healthy"]:
+                logger.debug("SwitchBot connectivity: All systems healthy")
+            else:
+                status_msg = []
+                if results["hub_ping"] is False:
+                    status_msg.append("Hub unreachable")
+                if not results["api_connectivity"]:
+                    status_msg.append("API unresponsive")
+                logger.warning(f"SwitchBot connectivity issues: {', '.join(status_msg)}")
+
+            return results
+
+        except Exception as e:
+            logger.error(f"Error during connectivity checks: {e}")
+            return results
 
     def _init_devices(self):
         """Initialize device configuration by storing MAC addresses."""
@@ -407,6 +536,25 @@ class TemperatureDaemon:
                             )
                     except Exception as e:
                         logger.error(f"Error during device re-initialization: {e}")
+
+                # Perform connectivity checks periodically (every 5 iterations or on first run)
+                if self.iteration_counter == 1 or self.iteration_counter % 5 == 0:
+                    logger.info("Performing SwitchBot connectivity checks...")
+                    connectivity_results = self._perform_connectivity_checks()
+
+                    # Update status with connectivity information
+                    self.status["hub_connectivity"].update(connectivity_results)
+                    self.status["hub_connectivity"]["last_check"] = datetime.now().isoformat()
+
+                    # Log connectivity status
+                    if not connectivity_results["overall_healthy"]:
+                        logger.warning(
+                            f"SwitchBot connectivity issues detected: "
+                            f"Hub ping: {connectivity_results['hub_ping']}, "
+                            f"API: {connectivity_results['api_connectivity']}"
+                        )
+                    else:
+                        logger.info("SwitchBot connectivity: All systems healthy")
 
                 cycle_success = False
 
