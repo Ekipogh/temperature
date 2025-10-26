@@ -421,32 +421,63 @@ jobs:
       - name: Deploy Govee Service Production
         shell: pwsh
         run: |
-          # Start Govee service
-          $pidFile = "${{ vars.TEMPERATURE_DIR }}\govee_service.pid"
+          # Navigate to the project directory
+          Set-Location "${{ vars.TEMPERATURE_DIR }}"
 
+          # Start Govee service with proper detachment
+          $pidFile = "${{ vars.TEMPERATURE_DIR }}\govee_service.pid"
+          $logFile = "${{ vars.TEMPERATURE_DIR }}\logs\govee_service.log"
+          $errorFile = "${{ vars.TEMPERATURE_DIR }}\logs\govee_service_error.log"
+
+          # Ensure logs directory exists
+          if (-not (Test-Path "${{ vars.TEMPERATURE_DIR }}\logs")) {
+              New-Item -ItemType Directory -Path "${{ vars.TEMPERATURE_DIR }}\logs" -Force
+          }
+
+          # Stop existing service if running
           if (Test-Path $pidFile) {
-              $existingPid = Get-Content $pidFile
-              if (Get-Process -Id $existingPid -ErrorAction SilentlyContinue) {
-                  Write-Output "Script already running. Stopping existing instance with PID $existingPid"
+              $existingPid = Get-Content $pidFile -ErrorAction SilentlyContinue
+              if ($existingPid -and (Get-Process -Id $existingPid -ErrorAction SilentlyContinue)) {
+                  Write-Output "Stopping existing Govee service with PID $existingPid"
                   Stop-Process -Id $existingPid -Force
+                  Start-Sleep -Seconds 2
               }
+              Remove-Item $pidFile -ErrorAction SilentlyContinue
           }
+
+          # Start Govee service with proper detachment using WindowStyle Hidden
           $processOptions = @{
-            FilePath = "python.exe"
-            ArgumentList = "services/govee_service.py"
-            PassThru = $true
-            RedirectStandardOutput = "${{ vars.TEMPERATURE_DIR }}\logs\govee_service.log"
-            RedirectStandardError = "${{ vars.TEMPERATURE_DIR }}\logs\govee_service_error.log"
+              FilePath = "python.exe"
+              ArgumentList = @("services/govee_service.py")
+              WorkingDirectory = "${{ vars.TEMPERATURE_DIR }}"
+              WindowStyle = "Hidden"
+              PassThru = $true
+              RedirectStandardOutput = $logFile
+              RedirectStandardError = $errorFile
           }
+
+          Write-Output "Starting Govee service..."
           $process = Start-Process @processOptions
-          $process.Id | Out-File $pidFile
+
+          # Save PID and release the process reference
+          $process.Id | Out-File $pidFile -Encoding UTF8
           Write-Output "Govee service started with PID $($process.Id)"
-          Write-Output "Checking Status"
-          Start-Sleep -Seconds 5
-          if (Get-Process -Id $($process.Id) -ErrorAction SilentlyContinue) {
-              Write-Output "Govee service is running"
+
+          # Release the process object to prevent hanging
+          $process.Dispose()
+
+          # Brief verification that the process started
+          Start-Sleep -Seconds 3
+          $savedPid = Get-Content $pidFile -ErrorAction SilentlyContinue
+          if ($savedPid -and (Get-Process -Id $savedPid -ErrorAction SilentlyContinue)) {
+              Write-Output "✅ Govee service is running successfully with PID $savedPid"
           } else {
-              Write-Output "Govee service is not running"
+              Write-Output "⚠️ Govee service may not have started properly"
+              # Show recent log entries for debugging
+              if (Test-Path $errorFile) {
+                  Write-Output "Recent error log entries:"
+                  Get-Content $errorFile -Tail 5 | ForEach-Object { Write-Output "  $_" }
+              }
           }
       - name: Wait for services to be ready (Windows)
         shell: pwsh
