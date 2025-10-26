@@ -418,19 +418,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      - name: Install Govee Service
-        shell: pwsh
-        run: |
-          Write-Output "📦 Installing Govee Service..."
-          mkdir -p "${{ vars.TEMPERATURE_DIR }}\services"
-          Copy-Item -Path "services/govee_service.py" -Destination "${{ vars.TEMPERATURE_DIR }}\services\govee_service.py" -Force
-          Write-Output "✅ Govee Service installed successfully"
       - name: Deploy Govee Service Production
         shell: pwsh
         run: |
-          # Navigate to the project directory
-          Set-Location "${{ vars.TEMPERATURE_DIR }}"
-
           # Start Govee service with proper detachment
           $pidFile = "${{ vars.TEMPERATURE_DIR }}\govee_service.pid"
           $logFile = "${{ vars.TEMPERATURE_DIR }}\logs\govee_service.log"
@@ -456,7 +446,6 @@ jobs:
           $processOptions = @{
               FilePath = "python.exe"
               ArgumentList = @("services/govee_service.py")
-              WorkingDirectory = "${{ vars.TEMPERATURE_DIR }}"
               WindowStyle = "Hidden"
               PassThru = $true
               RedirectStandardOutput = $logFile
