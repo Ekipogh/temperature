@@ -347,6 +347,7 @@ jobs:
           $env:DJANGO_DEBUG = "False"
           $env:DJANGO_ALLOWED_HOSTS = "${{ secrets.DJANGO_ALLOWED_HOSTS }}"
           $env:GOVEE_DJANGO_DB_PATH = "${{ vars.TEMPERATURE_DIR }}\data\db.sqlite3"
+          $env:SWITCHBOT_HUB_IP = "${{ secrets.SWITCHBOT_HUB_IP }}"
 
           # Export variables for subsequent steps
           echo "SWITCHBOT_TOKEN=${{ secrets.SWITCHBOT_TOKEN }}" >> $env:GITHUB_ENV
@@ -364,6 +365,7 @@ jobs:
           echo "DJANGO_DEBUG=False" >> $env:GITHUB_ENV
           echo "DJANGO_ALLOWED_HOSTS=${{ secrets.DJANGO_ALLOWED_HOSTS }}" >> $env:GITHUB_ENV
           echo "GOVEE_DJANGO_DB_PATH=${{ vars.TEMPERATURE_DIR }}\data\db.sqlite3" >> $env:GITHUB_ENV
+          echo "SWITCHBOT_HUB_IP=${{ secrets.SWITCHBOT_HUB_IP }}" >> $env:GITHUB_ENV
 
           Write-Output "✅ Environment variables set successfully"
       - name: Stop existing production containers (Windows)
@@ -427,7 +429,6 @@ jobs:
               if (Get-Process -Id $existingPid -ErrorAction SilentlyContinue) {
                   Write-Output "Script already running. Stopping existing instance with PID $existingPid"
                   Stop-Process -Id $existingPid -Force
-                  exit
               }
           }
           $processOptions = @{
