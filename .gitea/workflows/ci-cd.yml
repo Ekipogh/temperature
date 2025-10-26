@@ -467,6 +467,7 @@ jobs:
           $savedPid = Get-Content $pidFile -ErrorAction SilentlyContinue
           if ($savedPid -and (Get-Process -Id $savedPid -ErrorAction SilentlyContinue)) {
               Write-Output "✅ Govee service is running successfully with PID $savedPid"
+              exit 0
           } else {
               Write-Output "⚠️ Govee service may not have started properly"
               # Show recent log entries for debugging
