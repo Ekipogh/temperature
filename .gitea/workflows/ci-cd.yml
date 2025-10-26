@@ -422,6 +422,7 @@ jobs:
         shell: pwsh
         run: |
           Write-Output "📦 Installing Govee Service..."
+          mkdir -p "${{ vars.TEMPERATURE_DIR }}\services"
           Copy-Item -Path "services/govee_service.py" -Destination "${{ vars.TEMPERATURE_DIR }}\services\govee_service.py" -Force
           Write-Output "✅ Govee Service installed successfully"
       - name: Deploy Govee Service Production
