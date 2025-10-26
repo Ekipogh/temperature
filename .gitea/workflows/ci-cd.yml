@@ -418,6 +418,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+      - name: Install Govee Service
+        shell: pwsh
+        run: |
+          Write-Output "📦 Installing Govee Service..."
+          Copy-Item -Path "services/govee_service.py" -Destination "${{ vars.TEMPERATURE_DIR }}\services\govee_service.py" -Force
+          Write-Output "✅ Govee Service installed successfully"
       - name: Deploy Govee Service Production
         shell: pwsh
         run: |
@@ -449,6 +455,7 @@ jobs:
           $processOptions = @{
               FilePath = "python.exe"
               ArgumentList = @("services/govee_service.py")
+              WorkingDirectory = "${{ vars.TEMPERATURE_DIR }}"
               WindowStyle = "Hidden"
               PassThru = $true
               RedirectStandardOutput = $logFile
