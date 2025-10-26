@@ -449,7 +449,6 @@ jobs:
           $processOptions = @{
               FilePath = "python.exe"
               ArgumentList = @("services/govee_service.py")
-              WorkingDirectory = "${{ vars.TEMPERATURE_DIR }}"
               WindowStyle = "Hidden"
               PassThru = $true
               RedirectStandardOutput = $logFile
