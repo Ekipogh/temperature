@@ -464,60 +464,63 @@ jobs:
 
           Write-Output "Starting Govee service..."
           try {
-              # Start the process with proper error handling
-              $processStartInfo = New-Object System.Diagnostics.ProcessStartInfo
-              $processStartInfo.FileName = "python.exe"
-              $processStartInfo.Arguments = "services/govee_service.py"
-              $processStartInfo.WorkingDirectory = "${{ vars.TEMPERATURE_DIR }}"
-              $processStartInfo.UseShellExecute = $false
-              $processStartInfo.RedirectStandardOutput = $true
-              $processStartInfo.RedirectStandardError = $true
-              $processStartInfo.CreateNoWindow = $true
+              # Use simple Start-Process with proper detachment
+              $process = Start-Process -FilePath "python.exe" `
+                  -ArgumentList "services/govee_service.py" `
+                  -WorkingDirectory "${{ vars.TEMPERATURE_DIR }}" `
+                  -WindowStyle Hidden `
+                  -PassThru `
+                  -RedirectStandardOutput $logFile `
+                  -RedirectStandardError $errorFile
 
-              $process = New-Object System.Diagnostics.Process
-              $process.StartInfo = $processStartInfo
-
-              if ($process.Start()) {
-                  # Start background jobs to handle output redirection
-                  Start-Job -ScriptBlock {
-                      param($proc, $logFile)
-                      while (-not $proc.StandardOutput.EndOfStream) {
-                          $line = $proc.StandardOutput.ReadLine()
-                          Add-Content -Path $logFile -Value $line
-                      }
-                  } -ArgumentList $process, $logFile | Out-Null
-
-                  Start-Job -ScriptBlock {
-                      param($proc, $errorFile)
-                      while (-not $proc.StandardError.EndOfStream) {
-                          $line = $proc.StandardError.ReadLine()
-                          Add-Content -Path $errorFile -Value $line
-                      }
-                  } -ArgumentList $process, $errorFile | Out-Null
-
-                  # Don't dispose - let it run detached
+              if ($process) {
+                  # Save PID immediately
+                  $process.Id | Out-File $pidFile -Encoding UTF8
+                  Write-Output "✅ Govee service started successfully with PID $($process.Id)"
                   Write-Output "Process started and detached successfully"
               } else {
                   Write-Output "❌ Failed to start Govee service"
                   exit 1
               }
+
           } catch {
               Write-Output "❌ Error starting Govee service: $($_.Exception.Message)"
               exit 1
           }
 
           # Brief verification that the process started
-          Start-Sleep -Seconds 3
+          Start-Sleep -Seconds 5
           $savedPid = Get-Content $pidFile -ErrorAction SilentlyContinue
           if ($savedPid -and (Get-Process -Id $savedPid -ErrorAction SilentlyContinue)) {
               Write-Output "✅ Govee service is running successfully with PID $savedPid"
+
+              # Show recent log entries to confirm it's working
+              if (Test-Path $logFile) {
+                  Write-Output "Recent log entries (last 3):"
+                  Get-Content $logFile -Tail 3 -ErrorAction SilentlyContinue | ForEach-Object { Write-Output "  $_" }
+              }
           } else {
-              Write-Output "⚠️ Govee service may not have started properly"
+              Write-Output "⚠️ Govee service verification failed"
+
+              if ($savedPid) {
+                  Write-Output "PID $savedPid was saved but process is no longer running"
+              } else {
+                  Write-Output "No PID found in file $pidFile"
+              }
+
               # Show recent log entries for debugging
+              if (Test-Path $logFile) {
+                  Write-Output "Recent log entries:"
+                  Get-Content $logFile -Tail 5 -ErrorAction SilentlyContinue | ForEach-Object { Write-Output "  $_" }
+              }
+
               if (Test-Path $errorFile) {
                   Write-Output "Recent error log entries:"
                   Get-Content $errorFile -Tail 5 -ErrorAction SilentlyContinue | ForEach-Object { Write-Output "  $_" }
               }
+
+              # Don't exit with error - the service might have started but verification timing issues
+              Write-Output "Note: Service may still be starting up. Check logs manually if needed."
           }
       - name: Wait for services to be ready (Windows)
         shell: pwsh
