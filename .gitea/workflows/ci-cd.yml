@@ -273,6 +273,7 @@ jobs:
           } else {
               Write-Output "Govee service is not running"
           }
+          
       - name: Deploy to staging (Windows)
         shell: pwsh
         run: |
