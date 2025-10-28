@@ -423,8 +423,6 @@ jobs:
       - name: Deploy Govee Service Production
         shell: pwsh
         run: |
-          # Navigate to the project directory
-          Set-Location "${{ vars.TEMPERATURE_DIR }}"
 
           # Start Govee service with proper detachment
           $pidFile = "${{ vars.TEMPERATURE_DIR }}\govee_service.pid"
