@@ -117,7 +117,11 @@ class GoveeService:
         }
         self.status_file_path = os.getenv(
             "GOVEE_STATUS_FILE", "govee_status.json")
+        self.pid_file_path = os.getenv("GOVEE_PID_FILE", "govee_service.pid")
         self.update_status("initialized")
+        with open(self.pid_file_path, "w") as f:
+            f.write(str(os.getpid()))
+
 
     def run_subprocess(self, command, env=None, callback=None):
         """Run a subprocess command and optionally process its output with a callback."""

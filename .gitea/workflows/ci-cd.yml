@@ -342,6 +342,7 @@ jobs:
           $env:DATABASE_PATH = "/app/data/db.sqlite3"
           $env:DAEMON_STATUS_FILE = "/app/data/daemon_status.json"
           $env:GOVEE_STATUS_FILE = "${{ vars.TEMPERATURE_DIR }}\data\govee_status.json"
+          $env:GOVEE_PID_FILE = "${{ vars.TEMPERATURE_DIR }}\data\govee_service.pid"
           # Django production settings
           $env:DJANGO_SETTINGS_MODULE = "temperature.production_settings"
           $env:DJANGO_DEBUG = "False"
@@ -361,6 +362,7 @@ jobs:
           echo "DATABASE_PATH=/app/data/db.sqlite3" >> $env:GITHUB_ENV
           echo "DAEMON_STATUS_FILE=/app/data/daemon_status.json" >> $env:GITHUB_ENV
           echo "GOVEE_STATUS_FILE=${{ vars.TEMPERATURE_DIR }}\data\govee_status.json" >> $env:GITHUB_ENV
+          echo "GOVEE_PID_FILE=${{ vars.TEMPERATURE_DIR }}\data\govee_service.pid" >> $env:GITHUB_ENV
           echo "DJANGO_SETTINGS_MODULE=temperature.settings" >> $env:GITHUB_ENV
           echo "DJANGO_DEBUG=False" >> $env:GITHUB_ENV
           echo "DJANGO_ALLOWED_HOSTS=${{ secrets.DJANGO_ALLOWED_HOSTS }}" >> $env:GITHUB_ENV
@@ -442,21 +444,12 @@ jobs:
               Remove-Item $pidFile -ErrorAction SilentlyContinue
           }
 
-          # Start Govee service with proper detachment using WindowStyle Hidden
-          $processOptions = @{
-              FilePath = "python.exe"
-              ArgumentList = @("services/govee_service.py")
-              WindowStyle = "Hidden"
-              RedirectStandardOutput = $logFile
-              RedirectStandardError = $errorFile
-          }
-
           Write-Output "Starting Govee service..."
-          $process = Start-Process @processOptions
-
-          # Save PID and release the process reference
-          $process.Id | Out-File $pidFile -Encoding UTF8
-          Write-Output "Govee service started with PID $($process.Id)"
+          $process = Start-Process -FilePath "python.exe" `
+              -ArgumentList "services/govee_service.py" `
+              -WindowStyle Hidden `
+              -RedirectStandardOutput $logFile `
+              -RedirectStandardError $errorFile
 
           # Release the process object to prevent hanging
           $process.Dispose()
@@ -466,7 +459,6 @@ jobs:
           $savedPid = Get-Content $pidFile -ErrorAction SilentlyContinue
           if ($savedPid -and (Get-Process -Id $savedPid -ErrorAction SilentlyContinue)) {
               Write-Output "✅ Govee service is running successfully with PID $savedPid"
-              exit 0
           } else {
               Write-Output "⚠️ Govee service may not have started properly"
               # Show recent log entries for debugging
