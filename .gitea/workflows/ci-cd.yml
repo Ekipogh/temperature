@@ -423,6 +423,9 @@ jobs:
       - name: Deploy Govee Service Production
         shell: pwsh
         run: |
+          # Navigate to the project directory
+          Set-Location "${{ vars.TEMPERATURE_DIR }}"
+
           # Start Govee service with proper detachment
           $pidFile = "${{ vars.TEMPERATURE_DIR }}\govee_service.pid"
           $logFile = "${{ vars.TEMPERATURE_DIR }}\logs\govee_service.log"
@@ -444,14 +447,64 @@ jobs:
               Remove-Item $pidFile -ErrorAction SilentlyContinue
           }
 
-          Write-Output "Starting Govee service..."
-          $process = Start-Process -FilePath "python.exe" `
-              -ArgumentList "services/govee_service.py" `
-              -RedirectStandardOutput $logFile `
-              -RedirectStandardError $errorFile
+          # Verify Python is available and service file exists
+          Write-Output "Verifying prerequisites..."
+          try {
+              $pythonVersion = & python.exe --version 2>&1
+              Write-Output "Python found: $pythonVersion"
+          } catch {
+              Write-Output "❌ Python not found in PATH"
+              exit 1
+          }
 
-          # Release the process object to prevent hanging
-          $process.Dispose()
+          if (-not (Test-Path "services/govee_service.py")) {
+              Write-Output "❌ Govee service file not found: services/govee_service.py"
+              exit 1
+          }
+
+          Write-Output "Starting Govee service..."
+          try {
+              # Start the process with proper error handling
+              $processStartInfo = New-Object System.Diagnostics.ProcessStartInfo
+              $processStartInfo.FileName = "python.exe"
+              $processStartInfo.Arguments = "services/govee_service.py"
+              $processStartInfo.WorkingDirectory = "${{ vars.TEMPERATURE_DIR }}"
+              $processStartInfo.UseShellExecute = $false
+              $processStartInfo.RedirectStandardOutput = $true
+              $processStartInfo.RedirectStandardError = $true
+              $processStartInfo.CreateNoWindow = $true
+
+              $process = New-Object System.Diagnostics.Process
+              $process.StartInfo = $processStartInfo
+
+              if ($process.Start()) {
+                  # Start background jobs to handle output redirection
+                  Start-Job -ScriptBlock {
+                      param($proc, $logFile)
+                      while (-not $proc.StandardOutput.EndOfStream) {
+                          $line = $proc.StandardOutput.ReadLine()
+                          Add-Content -Path $logFile -Value $line
+                      }
+                  } -ArgumentList $process, $logFile | Out-Null
+
+                  Start-Job -ScriptBlock {
+                      param($proc, $errorFile)
+                      while (-not $proc.StandardError.EndOfStream) {
+                          $line = $proc.StandardError.ReadLine()
+                          Add-Content -Path $errorFile -Value $line
+                      }
+                  } -ArgumentList $process, $errorFile | Out-Null
+
+                  # Don't dispose - let it run detached
+                  Write-Output "Process started and detached successfully"
+              } else {
+                  Write-Output "❌ Failed to start Govee service"
+                  exit 1
+              }
+          } catch {
+              Write-Output "❌ Error starting Govee service: $($_.Exception.Message)"
+              exit 1
+          }
 
           # Brief verification that the process started
           Start-Sleep -Seconds 3
@@ -463,7 +516,7 @@ jobs:
               # Show recent log entries for debugging
               if (Test-Path $errorFile) {
                   Write-Output "Recent error log entries:"
-                  Get-Content $errorFile -Tail 5 | ForEach-Object { Write-Output "  $_" }
+                  Get-Content $errorFile -Tail 5 -ErrorAction SilentlyContinue | ForEach-Object { Write-Output "  $_" }
               }
           }
       - name: Wait for services to be ready (Windows)
