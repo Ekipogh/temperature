@@ -134,8 +134,6 @@ class GoveeService:
             env=env,
             encoding="utf-8",
             errors="replace"  # Replace invalid UTF-8 bytes instead of failing
-            encoding="utf-8",
-            errors="replace"  # Replace invalid UTF-8 bytes instead of failing
         )
 
         if not process.stdout:
@@ -193,10 +191,6 @@ class GoveeService:
         logger.info("Starting Govee Service...")
         # Run the govee-h5075 script in background
         try:
-<<<<<<< HEAD
-            logging.info(f"Polling govee devices every {self.interval} seconds")
-=======
->>>>>>> 851a9bc (fix: enhance logging for subprocess output and error handling in Govee service)
             self.run_subprocess(self._command, env=self._env,
                                 callback=self.handle_output)
         except Exception as e:
