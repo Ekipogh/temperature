@@ -447,7 +447,6 @@ jobs:
           Write-Output "Starting Govee service..."
           $process = Start-Process -FilePath "python.exe" `
               -ArgumentList "services/govee_service.py" `
-              -WindowStyle Hidden `
               -RedirectStandardOutput $logFile `
               -RedirectStandardError $errorFile
 
