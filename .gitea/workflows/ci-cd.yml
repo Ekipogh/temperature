@@ -447,7 +447,6 @@ jobs:
               FilePath = "python.exe"
               ArgumentList = @("services/govee_service.py")
               WindowStyle = "Hidden"
-              PassThru = $true
               RedirectStandardOutput = $logFile
               RedirectStandardError = $errorFile
           }
