@@ -75,8 +75,7 @@ def get_daemon_status():
     """Get the current status of the temperature daemon."""
     status_file = Path(
         os.getenv(
-            "DAEMON_STATUS_FILE", Path(
-                __file__).parent.parent / "daemon_status.json"
+            "DAEMON_STATUS_FILE", Path(__file__).parent.parent / "daemon_status.json"
         )
     )
 
@@ -118,8 +117,7 @@ def get_daemon_status():
                 status_data["error"] = f"No update for {int(time_diff)} seconds"
             else:
                 status_data["status"] = (
-                    "active" if status_data.get(
-                        "running", False) else "stopped"
+                    "active" if status_data.get("running", False) else "stopped"
                 )
         else:
             status_data["status"] = "unknown"
@@ -143,8 +141,7 @@ def get_daemon_status():
 def get_govee_status() -> dict:
     status_file = Path(
         os.getenv(
-            "GOVEE_STATUS_FILE", Path(
-                __file__).parent.parent / "govee_status.json"
+            "GOVEE_STATUS_FILE", Path(__file__).parent.parent / "govee_status.json"
         )
     )
     if not status_file.exists():
@@ -208,16 +205,13 @@ def basic(request):
         .first()
     )
     bedroom_temp = (
-        Temperature.objects.filter(
-            location="Bedroom").order_by("-timestamp").first()
+        Temperature.objects.filter(location="Bedroom").order_by("-timestamp").first()
     )
     office_temp = (
-        Temperature.objects.filter(
-            location="Office").order_by("-timestamp").first()
+        Temperature.objects.filter(location="Office").order_by("-timestamp").first()
     )
     outdoor_temp = (
-        Temperature.objects.filter(
-            location="Outdoor").order_by("-timestamp").first()
+        Temperature.objects.filter(location="Outdoor").order_by("-timestamp").first()
     )
 
     temeperature_data = [
@@ -247,8 +241,7 @@ def basic(request):
         },
     ]
     return render(
-        request, "homepage/basic.html", {
-            "temeperature_data": temeperature_data}
+        request, "homepage/basic.html", {"temeperature_data": temeperature_data}
     )
 
 
@@ -277,8 +270,7 @@ def temeperature_data(request):
 
     for location in unique_locations:
         latest = (
-            Temperature.objects.filter(
-                location=location).order_by("-timestamp").first()
+            Temperature.objects.filter(location=location).order_by("-timestamp").first()
         )
         if latest:
             current_data.append(
@@ -299,8 +291,7 @@ def historical_data(request):
     hours = int(request.GET.get("hours", 24))
     since = timezone.now() - timedelta(hours=hours)
 
-    readings = Temperature.objects.filter(
-        timestamp__gte=since).order_by("timestamp")
+    readings = Temperature.objects.filter(timestamp__gte=since).order_by("timestamp")
 
     # Group data by location
     data_by_location = {}
@@ -334,7 +325,6 @@ def govee_status(request):
 def system_status(request):
     """Get comprehensive system status including daemon and recent data."""
     daemon_status_data = get_daemon_status()
-    govee_status = get_govee_status()
 
     # Get recent temperature data count
     recent_cutoff = timezone.now() - timedelta(hours=1)
