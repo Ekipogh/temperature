@@ -1,6 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -37,7 +37,6 @@
             color: #6c757d;
         }
         .chart-container {
-            background: white;
             border-radius: 15px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             padding: 20px;
@@ -62,7 +61,7 @@
         }
     </style>
 </head>
-<body class="bg-light">
+<body>
     <div class="container-fluid py-4" id="app">
         <!-- Header -->
         <div class="row mb-4">
@@ -73,27 +72,52 @@
                         <p class="text-muted">Real-time monitoring of temperature and humidity</p>
                     </div>
                     <div class="d-flex align-items-center gap-3">
-                        <!-- Device Management Link -->
+                        {% comment %} <!-- Device Management Link -->
                         <a href="{% url 'manage_devices' %}" class="btn btn-outline-secondary btn-sm" title="Manage Devices">
                             <i class="fas fa-cog me-1"></i>Manage Devices
+                        </a> {% endcomment %}
+                        <!-- Theme Switcher -->
+                         <a href="#" id="theme-toggle" class="btn btn-outline-secondary btn-sm" title="Toggle Theme" @click.prevent="switchTheme">
+                            <i class="fas fa-adjust"></i>
                         </a>
 
-                        <!-- Daemon Status Indicator -->
-                        <div class="d-flex align-items-center">
-                            <span class="badge me-2" v-bind:class="{
-                                'bg-success': daemonStatus.status === 'active',
-                                'bg-warning': daemonStatus.status === 'stale',
-                                'bg-danger': daemonStatus.status === 'stopped' || daemonStatus.status === 'error' || daemonStatus.status === 'unknown'
-                                }">
-                                <i class="fas fa-circle me-1" style="font-size: 0.6em;"></i>
-                                <a href="/daemon/" class="text-decoration-none text-light me-3" title="View Daemon Details">
-                                    Daemon
-                                    [[ daemonStatus.status || 'unknown' ]]
-                                </a>
+                        <!-- Status Indicators (Vertical Stack) -->
+                        <div class="d-flex flex-column gap-2">
+                            <!-- Daemon Status Indicator -->
+                            <div class="d-flex align-items-center">
+                                <span class="badge me-2" v-bind:class="{
+                                    'bg-success': daemonStatus.status === 'active',
+                                    'bg-warning': daemonStatus.status === 'stale',
+                                    'bg-danger': daemonStatus.status === 'stopped' || daemonStatus.status === 'error' || daemonStatus.status === 'unknown'
+                                    }">
+                                    <i class="fas fa-circle me-1" style="font-size: 0.6em;"></i>
+                                    <a href="/daemon/" class="text-decoration-none text-light me-3" title="View Daemon Details">
+                                        Daemon
+                                        [[ daemonStatus.status || 'unknown' ]]
+                                    </a>
+                                    </span>
+                                    <small class="text-muted" v-if="daemonStatus.last_update" style="font-size: 0.75em;">
+                                        Updated: [[ formatTime(daemonStatus.last_update) ]]
+                                </small>
+                            </div>
+
+                            <!-- Govee Status Indicator -->
+                            <div class="d-flex align-items-center">
+                                <span class="badge me-2" v-bind:class="{
+                                    'bg-success': goveeStatus.status === 'running',
+                                    'bg-warning': goveeStatus.status === 'initialized',
+                                    'bg-danger': goveeStatus.status === 'stopped' || goveeStatus.status === 'error' || goveeStatus.status === 'unknown'
+                                    }">
+                                    <i class="fas fa-circle me-1" style="font-size: 0.6em;"></i>
+                                    <span class="text-light me-3" title="Govee Status">
+                                        Govee
+                                        [[ goveeStatus.status || 'unknown' ]]
+                                    </span>
                                 </span>
-                                <small class="text-muted" v-if="daemonStatus.last_update" style="font-size: 0.75em;">
-                                    Updated: [[ formatTime(daemonStatus.last_update) ]]
-                            </small>
+                                <small class="text-muted" v-if="goveeStatus.last_update" style="font-size: 0.75em;">
+                                    Updated: [[ formatTime(goveeStatus.last_update) ]]
+                                </small>
+                            </div>
                         </div>
 
                         <button v-on:click="refreshData" v-bind:disabled="loading" class="btn btn-primary">
@@ -214,6 +238,7 @@
                 const error = ref(null);
                 const selectedTimeRange = ref(24);
                 const daemonStatus = ref({status: 'unknown', running: false});
+                const goveeStatus = ref({status: 'unknown', running: false});
                 let temperatureChart = null;
                 let humidityChart = null;
                 const reload_interval = 5 * 60 * 1000; // 5 minutes
@@ -502,6 +527,24 @@
                     }
                 };
 
+                const fetchGoveeStatus = async () => {
+                    try {
+                        const response = await fetch('/api/govee/status/');
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        const data = await response.json();
+                        goveeStatus.value = data;
+                    } catch (err) {
+                        console.error('Error fetching Govee status:', err);
+                        goveeStatus.value = {
+                            status: 'error',
+                            last_update: null,
+                            error: 'Failed to fetch Govee status'
+                        };
+                    }
+                };
+
                 const refreshData = async () => {
                     loading.value = true;
                     error.value = null;
@@ -510,7 +553,8 @@
                         await Promise.all([
                             fetchCurrentData(true), // Manual refresh - fetch from devices
                             fetchHistoricalData(),
-                            fetchDaemonStatus()
+                            fetchDaemonStatus(),
+                            fetchGoveeStatus()
                         ]);
 
                         // Wait for DOM update before creating charts
@@ -534,7 +578,8 @@
                         await Promise.all([
                             fetchCurrentData(),
                             fetchHistoricalData(),
-                            fetchDaemonStatus()
+                            fetchDaemonStatus(),
+                            fetchGoveeStatus()
                         ]);
 
                         // Update charts with new data
@@ -570,10 +615,23 @@
                     return `${mins}:${secs.toString().padStart(2, '0')}`;
                 };
 
+                const switchTheme = () => {
+                    const htmlElement = document.documentElement;
+                    const currentTheme = htmlElement.getAttribute('data-bs-theme');
+                    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+                    htmlElement.setAttribute('data-bs-theme', newTheme);
+                    localStorage.setItem('theme', newTheme);
+                };
+
                 onMounted(() => {
                     autoRefreshData();
                     // Only run the counter timer - auto-refresh is handled by updateRefreshCounter
                     setInterval(updateRefreshCounter, 1000);
+                    // set theme based on saved preference
+                    const savedTheme = localStorage.getItem('theme');
+                    if (savedTheme) {
+                        document.documentElement.setAttribute('data-bs-theme', savedTheme);
+                    }
                 });
 
                 const formatTime = (isoString) => {
@@ -670,6 +728,7 @@
                     selectedTimeRange,
                     hasHumidityData,
                     daemonStatus,
+                    goveeStatus,
                     refreshData,
                     changeTimeRange,
                     getLocationIcon,
@@ -679,7 +738,8 @@
                     formatTimestamp,
                     formatTime,
                     reload_counter,
-                    formatCounter
+                    formatCounter,
+                    switchTheme
                 };
             }
         }).mount('#app');

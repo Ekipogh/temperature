@@ -10,4 +10,5 @@ urlpatterns = [
     path("api/historical/", views.historical_data, name="historical_data"),
     path("api/daemon/status/", views.daemon_status, name="daemon_status"),
     path("api/system/status/", views.system_status, name="system_status"),
+    path("api/govee/status/", views.govee_status, name="govee_status"),
 ]
